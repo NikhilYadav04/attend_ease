@@ -16,9 +16,11 @@ migrate_working_dir/
 *.iws
 .idea/
 
-#Keys Related
-lib/variables/
-lib/server/
+# Ignore the entire server folder
+/server/.env/
+
+# Ignore the variables folder inside the lib directory
+/lib/global objects/variables/
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
