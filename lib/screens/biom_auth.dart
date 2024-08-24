@@ -1,6 +1,6 @@
 import 'package:attend_ease/constants/colors.dart';
 import 'package:attend_ease/constants/scale.dart';
-import 'package:attend_ease/global%20objects/variables.dart';
+import 'package:attend_ease/globalobjects/variables.dart';
 import 'package:attend_ease/widgets/otp_auth_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

@@ -1,7 +1,7 @@
 import 'package:attend_ease/constants/colors.dart';
 import 'package:attend_ease/constants/scale.dart';
-import 'package:attend_ease/global%20objects/controllers.dart';
-import 'package:attend_ease/global%20objects/variables.dart';
+import 'package:attend_ease/globalobjects/controllers.dart';
+import 'package:attend_ease/globalobjects/variables.dart';
 import 'package:attend_ease/screens/home_screen.dart';
 import 'package:attend_ease/services/otpService.dart';
 import 'package:attend_ease/widgets/otp_auth_widgets.dart';

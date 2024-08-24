@@ -1,6 +1,6 @@
 import 'package:attend_ease/constants/colors.dart';
 import 'package:attend_ease/constants/scale.dart';
-import 'package:attend_ease/global%20objects/variables.dart';
+import 'package:attend_ease/globalobjects/variables.dart';
 import 'package:attend_ease/helper/helper_functions.dart';
 import 'package:attend_ease/screens/company_hr_screen.dart';
 import 'package:attend_ease/screens/company_setup_screen.dart';

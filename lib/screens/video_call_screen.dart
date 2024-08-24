@@ -1,5 +1,5 @@
 import 'package:attend_ease/constants/scale.dart';
-import 'package:attend_ease/global%20objects/variables.dart';
+import 'package:attend_ease/globalobjects/variables.dart';
 import 'package:flutter/material.dart';
 import 'package:zego_uikit_prebuilt_call/zego_uikit_prebuilt_call.dart';
 

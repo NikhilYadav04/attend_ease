@@ -1,6 +1,6 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:attend_ease/constants/colors.dart';
-import 'package:attend_ease/global%20objects/variables.dart';
+import 'package:attend_ease/globalobjects/variables.dart';
 import 'package:attend_ease/services/employeeService.dart';
 import 'package:attend_ease/widgets/employee_main_widgets.dart';
 import 'package:attend_ease/widgets/otp_auth_widgets.dart';

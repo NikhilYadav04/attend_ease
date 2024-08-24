@@ -1,6 +1,6 @@
 import 'package:attend_ease/constants/colors.dart';
 import 'package:attend_ease/constants/scale.dart';
-import 'package:attend_ease/global%20objects/variables.dart';
+import 'package:attend_ease/globalobjects/variables.dart';
 import 'package:flutter/material.dart';
 
 AppBar appBLocation(double currentWidth, double currentHeight, double textScale,

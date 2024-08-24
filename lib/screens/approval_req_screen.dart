@@ -1,5 +1,5 @@
 import 'package:attend_ease/constants/scale.dart';
-import 'package:attend_ease/global%20objects/variables.dart';
+import 'package:attend_ease/globalobjects/variables.dart';
 import 'package:attend_ease/widgets/company_hr_widgets.dart';
 import 'package:flutter/material.dart';
 
