@@ -17,10 +17,10 @@ migrate_working_dir/
 .idea/
 
 # Ignore the entire server folder
-/server/.env/
+/server/.env
 
 # Ignore the variables folder inside the lib directory
-/lib/globalobjects/variables/
+/lib/globalobjects/variables
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
