@@ -40,7 +40,7 @@
 
 ## 📖 Overview
 
-Attend Ease is a full-stack Flutter + Node.js application that streamlines workforce attendance. HR admins define a company geo-radius; employees can only clock in when physically inside it. Beyond the core punch-in/punch-out flow, HR gets tools to actually run a team day to day: multiple admins per company, a searchable leave/correction approval queue, a team leave calendar, attendance analytics, bulk CSV staff import, company holidays, per-employee leave quotas, configurable overtime detection, and a full audit trail of every approval and change. Leave requests, attendance corrections, daily attendance reports, and staff counts are all managed in-app, with PDF export for records and real-time video calls powered by Zego UIKit.
+Attend Ease is a full-stack Flutter + Node.js application that streamlines workforce attendance. HR admins define a company geo-radius; employees can only clock in when physically inside it. Beyond the core punch-in/punch-out flow, HR gets tools to actually run a team day to day: multiple admins per company, a searchable leave/correction approval queue with live pending-count badges on the dashboard, a team leave calendar, a month/year-filterable attendance analytics dashboard, bulk CSV staff import, company holidays, per-employee leave quotas, configurable overtime detection, and a full audit trail of every approval and change. Leave requests, attendance corrections, daily attendance reports, and staff counts are all managed in-app, with PDF export for records and real-time video calls powered by Zego UIKit.
 
 The backend was migrated from MongoDB/Mongoose to a Postgres database (hosted on Supabase) via Prisma, with the API response shape kept byte-identical to the old Mongo version — the Flutter client required zero changes as a result.
 
@@ -230,7 +230,7 @@ All routes are prefixed with **`/api/v1`**. Protected routes require `Authorizat
 | `POST` | `/company/add-admin` | hrOnly | Add another company admin |
 | `GET` | `/company/admins` | hrOnly | List company admins |
 | `POST` | `/company/remove-admin` | hrOnly | Remove an admin (blocked if it's the last one) |
-| `GET` | `/company/analytics` | hrOnly | Attendance trend, pending leaves, late/overtime stats |
+| `GET` | `/company/analytics` | hrOnly | Attendance trend (optional `?month=&year=`), pending leaves, late/overtime stats |
 | `GET` | `/company/settings` | hrOnly | Get company city + overtime threshold |
 | `POST` | `/company/update-settings` | hrOnly | Update city + overtime threshold hours |
 
@@ -343,7 +343,7 @@ Phone ──< Otp (active OTP per number)
 | `HomeScreen` | Both | Role selector (HR / Employee) |
 | `CompanySetupScreen` | HR | Register company |
 | `CompanyLocationScreen` | HR | Set geo-fence on map |
-| `CompanyHrScreen` | HR | Tabbed shell: dashboard, history, staff report |
+| `CompanyHrScreen` | HR | Tabbed shell: dashboard (with pending leave/correction count badges), history, staff report |
 | `StaffListScreen` | HR | Browse employees, search, remove (offboard) |
 | `AddStaffScreen` | HR | Add a single employee |
 | `BulkImportScreen` | HR | Import staff from a CSV, per-row results |
@@ -353,7 +353,7 @@ Phone ──< Otp (active OTP per number)
 | `ManageAdminsScreen` | HR | Add/remove company admins |
 | `ManageHolidaysScreen` | HR | Add/remove company holidays |
 | `TeamLeaveCalendarScreen` | HR | Calendar of who's on leave + holidays |
-| `CompanyAnalyticsScreen` | HR | Attendance trend chart, pending/late/hours stats |
+| `CompanyAnalyticsScreen` | HR | Month/year-filterable attendance trend chart (calendar picker + stepper), pending/late/hours stats |
 | `AuditLogScreen` | HR | Chronological log of HR actions |
 | `CompanySettingsScreen` | HR | Edit city + overtime threshold |
 | `AdminProfileScreen` | HR | HR profile + links to every screen above |
