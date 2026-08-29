@@ -38,10 +38,10 @@ class IdentifyResult {
 }
 
 class AuthService extends ApiService {
-  Future<ApiResponse<IdentifyResult>> identify(String phone) async {
+  Future<ApiResponse<IdentifyResult>> identify(String phone, String otpToken) async {
     return post<IdentifyResult>(
       ApiEndpoints.identify,
-      data: {'phone': phone},
+      data: {'phone': phone, 'otpToken': otpToken},
       fromJson: IdentifyResult.fromJson,
     );
   }

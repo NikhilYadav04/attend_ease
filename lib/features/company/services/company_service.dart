@@ -7,7 +7,8 @@ import 'package:attend_ease/features/company/models/company_model.dart';
 class CompanyService extends ApiService {
   // Add company — no auth, returns token + generated companyID
   Future<ApiResponse<Map<String, String>>> addCompany(
-      String companyName, String companyHR, String companyCity, String hrNumber) async {
+      String companyName, String companyHR, String companyCity,
+      String hrNumber, String otpToken) async {
     final companyBody = CompanyModel(
         companyName: companyName,
         companyHR: companyHR,
@@ -16,7 +17,7 @@ class CompanyService extends ApiService {
 
     return post<Map<String, String>>(
       ApiEndpoints.addCompany,
-      data: companyBody.toMap(),
+      data: {...companyBody.toMap(), 'otpToken': otpToken},
       fromJson: (json) => {
         'token': json['token'] as String,
         'companyID': json['companyID'] as String,
@@ -125,6 +126,115 @@ class CompanyService extends ApiService {
       ApiEndpoints.sendNotifications,
       token: token,
       data: {'employeeName': employeeName},
+    );
+  }
+
+  // List company admins — GET, company token
+  Future<ApiResponse<List<dynamic>>> getAdmins() async {
+    final token = await HelperFunctions.getCompanyToken();
+    return get<List<dynamic>>(
+      ApiEndpoints.listAdmins,
+      token: token,
+      fromJson: (json) => json as List<dynamic>,
+    );
+  }
+
+  // Add a company admin — POST, company token
+  Future<ApiResponse<void>> addAdmin(String name, String phone) async {
+    final token = await HelperFunctions.getCompanyToken();
+    return post<void>(
+      ApiEndpoints.addAdmin,
+      token: token,
+      data: {'name': name, 'phone': phone},
+    );
+  }
+
+  // Remove a company admin — POST, company token
+  Future<ApiResponse<void>> removeAdmin(String phone) async {
+    final token = await HelperFunctions.getCompanyToken();
+    return post<void>(
+      ApiEndpoints.removeAdmin,
+      token: token,
+      data: {'phone': phone},
+    );
+  }
+
+  // Company-wide attendance/leave analytics — GET, company token
+  // month: 1-12, year: e.g. 2026. Both optional — defaults to the current month.
+  Future<ApiResponse<Map<String, dynamic>>> getAnalytics({int? month, int? year}) async {
+    final token = await HelperFunctions.getCompanyToken();
+    return get<Map<String, dynamic>>(
+      ApiEndpoints.companyAnalytics,
+      token: token,
+      queryParameters: {
+        if (month != null) 'month': month,
+        if (year != null) 'year': year,
+      },
+      fromJson: (json) => json as Map<String, dynamic>,
+    );
+  }
+
+  // Get current company settings — GET, company token
+  Future<ApiResponse<Map<String, dynamic>>> getCompanySettings() async {
+    final token = await HelperFunctions.getCompanyToken();
+    return get<Map<String, dynamic>>(
+      ApiEndpoints.getCompanySettings,
+      token: token,
+      fromJson: (json) => json as Map<String, dynamic>,
+    );
+  }
+
+  // Update company settings (city + overtime threshold) — POST, company token
+  Future<ApiResponse<void>> updateCompanySettings(
+      String companyCity, double overtimeThresholdHours) async {
+    final token = await HelperFunctions.getCompanyToken();
+    return post<void>(
+      ApiEndpoints.updateCompanySettings,
+      token: token,
+      data: {
+        'companyCity': companyCity,
+        'overtimeThresholdHours': overtimeThresholdHours,
+      },
+    );
+  }
+
+  // List company holidays — GET, company token
+  Future<ApiResponse<List<dynamic>>> getHolidays() async {
+    final token = await HelperFunctions.getCompanyToken();
+    return get<List<dynamic>>(
+      ApiEndpoints.listHolidays,
+      token: token,
+      fromJson: (json) => json as List<dynamic>,
+    );
+  }
+
+  // Add a company holiday — POST, company token
+  Future<ApiResponse<void>> addHoliday(String date, String name) async {
+    final token = await HelperFunctions.getCompanyToken();
+    return post<void>(
+      ApiEndpoints.addHoliday,
+      token: token,
+      data: {'date': date, 'name': name},
+    );
+  }
+
+  // Remove a company holiday — POST, company token
+  Future<ApiResponse<void>> removeHoliday(String holidayId) async {
+    final token = await HelperFunctions.getCompanyToken();
+    return post<void>(
+      ApiEndpoints.removeHoliday,
+      token: token,
+      data: {'holidayId': holidayId},
+    );
+  }
+
+  // Get audit log — GET, company token
+  Future<ApiResponse<List<dynamic>>> getAuditLog() async {
+    final token = await HelperFunctions.getCompanyToken();
+    return get<List<dynamic>>(
+      ApiEndpoints.auditLog,
+      token: token,
+      fromJson: (json) => json as List<dynamic>,
     );
   }
 }

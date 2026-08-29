@@ -17,8 +17,6 @@ class _CallScreenState extends State<CallScreen> {
   Widget build(BuildContext context) {
     final height = MediaQuery.of(context).size.height;
     final width = MediaQuery.of(context).size.width;
-    // ignore: deprecated_member_use
-    final textScale = MediaQuery.of(context).textScaleFactor;
     return SafeArea(
         child: Scaffold(
       appBar: AppBar(

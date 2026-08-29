@@ -6,6 +6,7 @@ import 'package:attend_ease/core/router/app_router.dart';
 import 'package:attend_ease/features/company/providers/company_provider.dart';
 import 'package:attend_ease/features/company/screens/employee_attendance_screen.dart';
 import 'package:attend_ease/features/company/services/company_service.dart';
+import 'package:attend_ease/features/employee/services/employee_service.dart';
 import 'package:attend_ease/features/auth/widgets/otp_auth_widgets.dart';
 import 'package:attend_ease/shared/widgets/app_card.dart';
 import 'package:attend_ease/shared/widgets/app_text_field.dart';
@@ -25,6 +26,7 @@ class StaffListScreen extends StatefulWidget {
 
 class _StaffListScreenState extends State<StaffListScreen> {
   final CompanyService _service = getIt<CompanyService>();
+  final EmployeeService _employeeService = getIt<EmployeeService>();
   final TextEditingController _callIDCtrl = TextEditingController();
   final TextEditingController _usernameCtrl = TextEditingController();
   final TextEditingController _searchCtrl = TextEditingController();
@@ -57,6 +59,48 @@ class _StaffListScreenState extends State<StaffListScreen> {
     if (!mounted) return;
     if (res.success) {
       toastMessageSuccess(context, 'Sent', 'Notification sent to $employeeName');
+    } else {
+      toastMessageError(context, 'Error', res.message);
+    }
+  }
+
+  Future<void> _confirmRemove(String employeeName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text('Remove $employeeName?', style: AppTextStyles.title),
+        content: Text(
+          'They will immediately lose access and disappear from the staff list. '
+          'Their attendance history is kept.',
+          style: AppTextStyles.body,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          PrimaryButton(
+            label: 'Remove',
+            width: 132,
+            height: 40,
+            icon: Icons.person_remove_rounded,
+            color: AppColors.error,
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final res = await _employeeService.removeEmployee(employeeName);
+    if (!mounted) return;
+    if (res.success) {
+      toastMessageSuccess(context, 'Removed', '$employeeName has been removed.');
+      final refreshed = await _service.getStaff();
+      if (mounted && refreshed.success && refreshed.data != null) {
+        context.read<CompanyProvider>().setStaffReport(refreshed.data!);
+      }
     } else {
       toastMessageError(context, 'Error', res.message);
     }
@@ -95,7 +139,7 @@ class _StaffListScreenState extends State<StaffListScreen> {
           ),
           PrimaryButton(
             label: 'Join',
-            width: 90,
+            width: 112,
             height: 40,
             icon: Icons.video_call_rounded,
             onPressed: () {
@@ -283,7 +327,10 @@ class _StaffListScreenState extends State<StaffListScreen> {
                         employeeName: name,
                         employeeID: empID,
                         attendance: (staff['attendance'] as List<dynamic>? ?? []),
+                        onLeaveDates: (staff['onLeaveDates'] as List<dynamic>? ?? []),
                         daysPresent: daysPresent,
+                        leaveQuota: (staff['leaveQuota'] as num?)?.toInt(),
+                        leaveUsed: (staff['leaveUsed'] as num?)?.toInt(),
                       ),
                     ),
                   ),
@@ -397,7 +444,7 @@ class _StaffListScreenState extends State<StaffListScreen> {
                         children: [
                           Expanded(
                             child: PrimaryButton(
-                              label: 'Send Alert',
+                              label: 'Alert',
                               height: 36,
                               color: isGood
                                   ? AppColors.success
@@ -409,12 +456,37 @@ class _StaffListScreenState extends State<StaffListScreen> {
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: PrimaryButton(
-                              label: 'Video Meet',
+                              label: 'Meet',
                               height: 36,
                               color: const Color(0xFF0284C7),
                               icon: Icons.video_call_rounded,
                               onPressed: () => _showVideoDialog(name),
                             ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_vert_rounded,
+                                color: AppColors.textSecondary),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            onSelected: (value) {
+                              if (value == 'remove') _confirmRemove(name);
+                            },
+                            itemBuilder: (_) => [
+                              PopupMenuItem(
+                                value: 'remove',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.person_remove_rounded,
+                                        size: 18, color: AppColors.error),
+                                    const SizedBox(width: AppSpacing.sm),
+                                    Text('Remove Employee',
+                                        style: AppTextStyles.body
+                                            .copyWith(color: AppColors.error)),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

@@ -5,6 +5,7 @@ import 'package:attend_ease/core/router/app_router.dart';
 import 'package:attend_ease/features/auth/providers/auth_provider.dart';
 import 'package:attend_ease/features/attendance/providers/attendance_provider.dart';
 import 'package:attend_ease/features/company/providers/company_provider.dart';
+import 'package:attend_ease/features/correction/providers/correction_provider.dart';
 import 'package:attend_ease/features/employee/providers/employee_provider.dart';
 import 'package:attend_ease/features/leave/providers/leave_provider.dart';
 import 'package:flutter/foundation.dart';
@@ -50,6 +51,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AttendanceProvider()),
         ChangeNotifierProvider(create: (_) => EmployeeProvider()),
         ChangeNotifierProvider(create: (_) => LeaveProvider()),
+        ChangeNotifierProvider(create: (_) => CorrectionProvider()),
       ],
       child: MaterialApp.router(
         routerConfig: goRouter,

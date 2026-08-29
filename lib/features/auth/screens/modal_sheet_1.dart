@@ -39,11 +39,12 @@ class _SheetScreen1State extends State<SheetScreen1> {
       return;
     }
 
-    context.read<AuthProvider>().setPhoneNumber(phone);
+    final fullPhone = '+91$phone';
+    context.read<AuthProvider>().setPhoneNumber(fullPhone);
     _numberCtrl.clear();
     setState(() => _isLoading = true);
 
-    final result = await _otpService.sendOTP('+91$phone');
+    final result = await _otpService.sendOTP(fullPhone);
     if (!mounted) return;
     setState(() => _isLoading = false);
 

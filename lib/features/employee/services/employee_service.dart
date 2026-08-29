@@ -23,9 +23,31 @@ class EmployeeService extends ApiService {
     );
   }
 
+  // Remove employee — POST, company token
+  Future<ApiResponse<void>> removeEmployee(String employeeName) async {
+    final token = await HelperFunctions.getCompanyToken();
+    return post<void>(
+      ApiEndpoints.removeEmployee,
+      token: token,
+      data: {'employeeName': employeeName},
+    );
+  }
+
+  // Bulk-add employees — POST, company token. Returns per-row results.
+  Future<ApiResponse<List<dynamic>>> bulkAddEmployees(
+      List<Map<String, String>> employees) async {
+    final token = await HelperFunctions.getCompanyToken();
+    return post<List<dynamic>>(
+      ApiEndpoints.bulkAddEmployees,
+      token: token,
+      data: {'employees': employees},
+      fromJson: (json) => json as List<dynamic>,
+    );
+  }
+
   // Join company — POST, no auth, returns token
-  Future<ApiResponse<String>> joinCompany(
-      String employeeCompany, String employeeID, String employeeName) async {
+  Future<ApiResponse<String>> joinCompany(String employeeCompany,
+      String employeeID, String employeeName, String otpToken) async {
     EmployeeJoinModel joinModel = EmployeeJoinModel(
         companyName: employeeCompany,
         employeeID: employeeID,
@@ -33,8 +55,18 @@ class EmployeeService extends ApiService {
 
     return post<String>(
       ApiEndpoints.joinEmployee,
-      data: joinModel.toMap(),
+      data: {...joinModel.toMap(), 'otpToken': otpToken},
       fromJson: (json) => json['token'] as String,
+    );
+  }
+
+  // List company holidays — GET, employee token
+  Future<ApiResponse<List<dynamic>>> getHolidays() async {
+    final token = await HelperFunctions.getEmployeeToken();
+    return get<List<dynamic>>(
+      ApiEndpoints.listHolidays,
+      token: token,
+      fromJson: (json) => json as List<dynamic>,
     );
   }
 

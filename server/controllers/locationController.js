@@ -1,18 +1,23 @@
-const locationModel = require("../models/location");
+const prisma = require("../lib/prisma");
 
 const storeLocation = async (req, res) => {
   try {
     const { latitude, longitude, radius, workStartTime } = req.body;
     const { companyName } = req.user;
 
-    const update = { latitude, longitude, radius };
-    if (workStartTime) update.workStartTime = workStartTime;
+    const company = await prisma.company.findUnique({ where: { companyName } });
+    if (!company) {
+      return res.status(404).json({ success: false, message: "Company not found" });
+    }
 
-    const body = await locationModel.findOneAndUpdate(
-      { companyName },
-      update,
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
+    const data = { latitude, longitude, radius: Number(radius) };
+    if (workStartTime) data.workStartTime = workStartTime;
+
+    const body = await prisma.location.upsert({
+      where: { companyId: company.id },
+      update: data,
+      create: { ...data, companyId: company.id },
+    });
 
     return res.status(200).json({ success: true, message: "Location stored", data: body });
   } catch (e) {
@@ -23,7 +28,10 @@ const storeLocation = async (req, res) => {
 const getLocation = async (req, res) => {
   try {
     const { employeeCompany } = req.user;
-    const body = await locationModel.findOne({ companyName: employeeCompany });
+    const company = await prisma.company.findUnique({ where: { companyName: employeeCompany } });
+    const body = company
+      ? await prisma.location.findUnique({ where: { companyId: company.id } })
+      : null;
 
     if (!body) {
       return res.status(200).json({ success: false, message: "Location not set" });
@@ -38,7 +46,10 @@ const getLocation = async (req, res) => {
 const getCompanyLocation = async (req, res) => {
   try {
     const { companyName } = req.user;
-    const body = await locationModel.findOne({ companyName });
+    const company = await prisma.company.findUnique({ where: { companyName } });
+    const body = company
+      ? await prisma.location.findUnique({ where: { companyId: company.id } })
+      : null;
 
     if (!body) {
       return res.status(200).json({ success: false, message: "Location not set" });

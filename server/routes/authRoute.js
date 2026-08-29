@@ -4,6 +4,6 @@ const { requireFields } = require("../middleware/validate");
 
 const authRouter = express.Router();
 
-authRouter.post("/identify", requireFields("phone"), identify);
+authRouter.post("/identify", requireFields("phone", "otpToken"), identify);
 
 module.exports = authRouter;

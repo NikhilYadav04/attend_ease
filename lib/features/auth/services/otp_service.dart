@@ -10,10 +10,11 @@ class OtpService extends ApiService {
     );
   }
 
-  Future<ApiResponse<void>> verifyOTP(String phoneNumber, String otp) async {
-    return post<void>(
+  Future<ApiResponse<String>> verifyOTP(String phoneNumber, String otp) async {
+    return post<String>(
       ApiEndpoints.verifyOtp,
       data: {'phoneNumber': phoneNumber, 'otp': otp},
+      fromJson: (json) => json['otpToken'] as String,
     );
   }
 }

@@ -19,12 +19,23 @@ class HrLeaveScreen extends StatefulWidget {
 
 class _HrLeaveScreenState extends State<HrLeaveScreen> {
   final LeaveService _service = LeaveService();
+  final TextEditingController _searchCtrl = TextEditingController();
   bool _loading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _fetchLeaves());
+    _searchCtrl.addListener(() {
+      setState(() => _searchQuery = _searchCtrl.text.trim().toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchLeaves() async {
@@ -52,6 +63,10 @@ class _HrLeaveScreenState extends State<HrLeaveScreen> {
   @override
   Widget build(BuildContext context) {
     final leaves = context.watch<LeaveProvider>().pendingLeaves;
+    final filteredLeaves = leaves.where((l) {
+      final name = (l['employeeName'] as String? ?? '').toLowerCase();
+      return _searchQuery.isEmpty || name.contains(_searchQuery);
+    }).toList();
 
     return SafeArea(
       child: Scaffold(
@@ -73,16 +88,51 @@ class _HrLeaveScreenState extends State<HrLeaveScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      TextField(
+                        controller: _searchCtrl,
+                        style: AppTextStyles.body,
+                        decoration: InputDecoration(
+                          hintText: 'Search by name…',
+                          hintStyle: AppTextStyles.body.copyWith(color: AppColors.textHint),
+                          prefixIcon: const Icon(Icons.search_rounded,
+                              color: AppColors.textSecondary, size: 20),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.close_rounded,
+                                      color: AppColors.textSecondary, size: 18),
+                                  onPressed: () => _searchCtrl.clear(),
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: AppColors.surface,
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.sm, horizontal: AppSpacing.md),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            borderSide: const BorderSide(color: AppColors.border),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            borderSide: const BorderSide(color: AppColors.border),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            borderSide:
+                                const BorderSide(color: AppColors.primary, width: 1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Pending Requests', style: AppTextStyles.title),
-                          Text('${leaves.length} pending',
+                          Text('${filteredLeaves.length} pending',
                               style: AppTextStyles.caption),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      if (leaves.isEmpty)
+                      if (filteredLeaves.isEmpty)
                         AppCard(
                           padding: const EdgeInsets.symmetric(
                               vertical: AppSpacing.xl),
@@ -94,7 +144,10 @@ class _HrLeaveScreenState extends State<HrLeaveScreen> {
                                     size: 40,
                                     color: AppColors.textHint),
                                 const SizedBox(height: AppSpacing.sm),
-                                Text('No pending leave requests.',
+                                Text(
+                                    leaves.isEmpty
+                                        ? 'No pending leave requests.'
+                                        : 'No matches for "$_searchQuery".',
                                     style: AppTextStyles.body.copyWith(
                                         color: AppColors.textSecondary)),
                               ],
@@ -105,11 +158,11 @@ class _HrLeaveScreenState extends State<HrLeaveScreen> {
                         ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: leaves.length,
+                          itemCount: filteredLeaves.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: AppSpacing.sm),
                           itemBuilder: (context, index) {
-                            final leave = leaves[index];
+                            final leave = filteredLeaves[index];
                             final id = leave['_id'] as String? ??
                                 leave['id'] as String? ??
                                 '';

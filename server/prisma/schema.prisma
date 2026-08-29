@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Company {
+  id          String   @id @default(uuid())
+  companyName String   @unique @map("company_name")
+  companyHr   String   @map("company_hr")
+  companyCode String   @unique @map("company_code")
+  companyCity String   @map("company_city")
+  hrPhone     String   @unique @map("hr_phone")
+  overtimeThresholdMinutes Int @default(540) @map("overtime_threshold_minutes")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  employees    Employee[]
+  location     Location?
+  staffCount   StaffCount?
+  staffReports StaffReportEntry[]
+  leaves       Leave[]
+  corrections  AttendanceCorrection[]
+  admins       CompanyAdmin[]
+  holidays     Holiday[]
+  auditLogs    AuditLog[]
+
+  @@map("companies")
+}
+
+model CompanyAdmin {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id])
+  name      String
+  phone     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("company_admins")
+}
+
+model Employee {
+  id               String    @id @default(uuid())
+  employeeName     String    @map("employee_name")
+  employeeNumber   String    @unique @map("employee_number")
+  employeePosition String    @map("employee_position")
+  employeeCode     String    @unique @map("employee_code")
+  companyId        String    @map("company_id")
+  company          Company   @relation(fields: [companyId], references: [id])
+  leaveQuota       Int       @default(12) @map("leave_quota")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  attendance  AttendanceRecord[]
+  leaves      Leave[]
+  corrections AttendanceCorrection[]
+
+  @@unique([employeeName, companyId])
+  @@map("employees")
+}
+
+model Location {
+  id            String  @id @default(uuid())
+  companyId     String  @unique @map("company_id")
+  company       Company @relation(fields: [companyId], references: [id])
+  latitude      Decimal
+  longitude     Decimal
+  radius        Float
+  workStartTime String? @map("work_start_time")
+
+  @@map("locations")
+}
+
+model AttendanceRecord {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  date       String   @map("date")
+  inTime     String   @map("in_time")
+  outTime    String   @map("out_time")
+  isPresent  Boolean  @default(false) @map("is_present")
+  isLate     Boolean  @default(false) @map("is_late")
+
+  @@unique([employeeId, date])
+  @@map("attendance_records")
+}
+
+model StaffCount {
+  id        String  @id @default(uuid())
+  companyId String  @unique @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id])
+  inCount   Int     @default(0) @map("in_count")
+  outCount  Int     @default(0) @map("out_count")
+  total     Int     @default(0)
+
+  @@map("staff_counts")
+}
+
+model StaffReportEntry {
+  id          String  @id @default(uuid())
+  companyId   String  @map("company_id")
+  company     Company @relation(fields: [companyId], references: [id])
+  isSubmit    Boolean @map("is_submit")
+  totalCount  Int     @map("total_count")
+  currentDate String  @map("current_date")
+
+  @@map("staff_report_entries")
+}
+
+model Leave {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  companyId  String   @map("company_id")
+  company    Company  @relation(fields: [companyId], references: [id])
+  leaveType  String   @map("leave_type")
+  fromDate   String   @map("from_date")
+  toDate     String   @map("to_date")
+  reason     String
+  status     String   @default("Pending")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("leaves")
+}
+
+model AttendanceCorrection {
+  id               String   @id @default(uuid())
+  employeeId       String   @map("employee_id")
+  employee         Employee @relation(fields: [employeeId], references: [id])
+  companyId        String   @map("company_id")
+  company          Company  @relation(fields: [companyId], references: [id])
+  date             String
+  requestedInTime  String?  @map("requested_in_time")
+  requestedOutTime String?  @map("requested_out_time")
+  reason           String
+  status           String   @default("Pending")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("attendance_corrections")
+}
+
+model Holiday {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id])
+  date      String
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([companyId, date])
+  @@map("holidays")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id])
+  actorName String   @map("actor_name")
+  action    String
+  detail    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+model Otp {
+  id          String   @id @default(uuid())
+  phoneNumber String   @unique @map("phone_number")
+  otp         String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("otps")
+}

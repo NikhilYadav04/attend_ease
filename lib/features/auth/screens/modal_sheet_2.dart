@@ -48,16 +48,19 @@ class _SheetScreen2State extends State<SheetScreen2> {
     final otpResult = await _otpService.verifyOTP(phone, otp);
     if (!mounted) return;
 
-    if (!otpResult.success) {
+    if (!otpResult.success || otpResult.data == null) {
       setState(() => _isLoading = false);
       toastMessageError(context, 'Error!', otpResult.message);
       return;
     }
 
+    final otpToken = otpResult.data!;
+    context.read<AuthProvider>().setOtpToken(otpToken);
+
     // OTP verified — persist phone and identify role
     await HelperFunctions.setPhone(phone);
 
-    final identifyResult = await _authService.identify(phone);
+    final identifyResult = await _authService.identify(phone, otpToken);
     if (!mounted) return;
 
     if (!identifyResult.success) {
@@ -159,7 +162,7 @@ class _SheetScreen2State extends State<SheetScreen2> {
                         style: AppTextStyles.headline),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'We sent an OTP to +91 $phone',
+                      'We sent an OTP to $phone',
                       style: AppTextStyles.body
                           .copyWith(color: AppColors.textSecondary),
                     ),

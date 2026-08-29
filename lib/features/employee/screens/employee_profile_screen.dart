@@ -1,6 +1,7 @@
 import 'package:attend_ease/core/constants/app_colors.dart';
 import 'package:attend_ease/core/constants/app_spacing.dart';
 import 'package:attend_ease/core/constants/app_text_styles.dart';
+import 'package:attend_ease/core/utils/attendance_time.dart';
 import 'package:attend_ease/features/attendance/providers/attendance_provider.dart';
 import 'package:attend_ease/features/employee/providers/employee_provider.dart';
 import 'package:attend_ease/features/auth/providers/auth_provider.dart';
@@ -24,14 +25,9 @@ class EmployeeProfileScreen extends StatelessWidget {
 
     // This month attendance
     final now = DateTime.now();
-    final monthRecords = ep.report.where((e) {
-      final parts = (e['Date'] as String? ?? '').split('/');
-      if (parts.length != 3) return false;
-      final month = int.tryParse(parts[1]) ?? 0;
-      final yearShort = int.tryParse(parts[2]) ?? 0;
-      final year = yearShort < 100 ? 2000 + yearShort : yearShort;
-      return month == now.month && year == now.year;
-    }).toList();
+    final monthRecords = ep.report
+        .where((e) => AttendanceTime.isInMonth(e['Date'] as String? ?? '', now))
+        .toList();
 
     final presentThisMonth =
         monthRecords.where((e) => e['isPresent'] == true).length;

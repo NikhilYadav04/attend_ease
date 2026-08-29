@@ -3,6 +3,7 @@ import 'package:attend_ease/core/constants/app_spacing.dart';
 import 'package:attend_ease/core/constants/app_text_styles.dart';
 import 'package:attend_ease/features/attendance/providers/attendance_provider.dart';
 import 'package:attend_ease/core/di/service_locator.dart';
+import 'package:attend_ease/core/utils/attendance_time.dart';
 import 'package:attend_ease/features/attendance/services/attendance_service.dart';
 import 'package:attend_ease/features/employee/providers/employee_provider.dart';
 import 'package:attend_ease/shared/widgets/skeleton_box.dart';
@@ -58,7 +59,11 @@ class _EmployeeMainScreen1State extends State<EmployeeMainScreen1> {
       attendanceProvider.setOutTime('00:00');
       attendanceProvider.setPresent(false);
       attendanceProvider.setTotalDays(0);
-      toastMessageError(context, 'Error!', result.message);
+      final isEmptyState = result.message == 'No record for this date' ||
+          result.message == 'Record not found';
+      if (!isEmptyState) {
+        toastMessageError(context, 'Error!', result.message);
+      }
     }
 
     final listRes = await _employeeService.getReport();
@@ -71,35 +76,19 @@ class _EmployeeMainScreen1State extends State<EmployeeMainScreen1> {
 
   double _monthRate(EmployeeProvider ep) {
     final now = DateTime.now();
-    final monthRecords = ep.report.where((e) {
-      final parts = (e['Date'] as String? ?? '').split('/');
-      if (parts.length != 3) return false;
-      final m = int.tryParse(parts[1]) ?? 0;
-      final y = int.tryParse(parts[2]) ?? 0;
-      final fullY = y < 100 ? 2000 + y : y;
-      return m == now.month && fullY == now.year;
-    }).toList();
+    final monthRecords = ep.report
+        .where((e) => AttendanceTime.isInMonth(e['Date'] as String? ?? '', now))
+        .toList();
     if (monthRecords.isEmpty) return 0;
     final present = monthRecords.where((e) => e['isPresent'] == true).length;
     return present / monthRecords.length * 100;
-  }
-
-  /// Converts dd/MM/yy entry to DateTime. Returns null if unparseable.
-  DateTime? _parseEntryDate(String raw) {
-    final parts = raw.split('/');
-    if (parts.length != 3) return null;
-    final d = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    final y = int.tryParse(parts[2]);
-    if (d == null || m == null || y == null) return null;
-    return DateTime(y < 100 ? 2000 + y : y, m, d);
   }
 
   /// Builds a map of DateTime (date-only) → isPresent from report.
   Map<DateTime, bool> _buildPresenceMap(List<dynamic> report) {
     final map = <DateTime, bool>{};
     for (final e in report) {
-      final dt = _parseEntryDate(e['Date'] as String? ?? '');
+      final dt = AttendanceTime.parseEntryDate(e['Date'] as String? ?? '');
       if (dt != null) {
         map[DateTime(dt.year, dt.month, dt.day)] = e['isPresent'] == true;
       }

@@ -4,6 +4,8 @@ import 'package:attend_ease/core/constants/app_text_styles.dart';
 import 'package:attend_ease/features/company/providers/company_provider.dart';
 import 'package:attend_ease/core/di/service_locator.dart';
 import 'package:attend_ease/features/company/services/company_service.dart';
+import 'package:attend_ease/features/correction/services/correction_service.dart';
+import 'package:attend_ease/features/leave/services/leave_service.dart';
 import 'package:attend_ease/features/auth/widgets/otp_auth_widgets.dart';
 import 'package:attend_ease/shared/widgets/app_card.dart';
 import 'package:attend_ease/shared/widgets/skeleton_box.dart';
@@ -26,8 +28,12 @@ class CompanyHrScreen1 extends StatefulWidget {
 
 class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
   final CompanyService _service = getIt<CompanyService>();
+  final LeaveService _leaveService = LeaveService();
+  final CorrectionService _correctionService = CorrectionService();
   final DateTime _now = DateTime.now();
   bool _loading = true;
+  int _pendingLeaveCount = 0;
+  int _pendingCorrectionCount = 0;
 
   final TextEditingController _callIDCtrl = TextEditingController();
   final TextEditingController _usernameCtrl = TextEditingController();
@@ -50,7 +56,22 @@ class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
     await _getReport();
     await _getStaffReportList();
     await _getStaffHistory();
+    await _getPendingCounts();
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _getPendingCounts() async {
+    final results = await Future.wait([
+      _leaveService.getPendingLeaves(),
+      _correctionService.getPendingCorrections(),
+    ]);
+    if (!mounted) return;
+    final leaveRes = results[0];
+    final correctionRes = results[1];
+    setState(() {
+      _pendingLeaveCount = leaveRes.success ? (leaveRes.data?.length ?? 0) : 0;
+      _pendingCorrectionCount = correctionRes.success ? (correctionRes.data?.length ?? 0) : 0;
+    });
   }
 
   Future<void> _getCount() async {
@@ -141,7 +162,7 @@ class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
           ),
           PrimaryButton(
             label: 'Join',
-            width: 90,
+            width: 112,
             height: 40,
             icon: Icons.video_call_rounded,
             onPressed: () {
@@ -294,6 +315,13 @@ class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
                     onTap: () => context.push(AppRoutes.companyAddStaff),
                   ),
                   _ActionTile(
+                    icon: Icons.upload_file_rounded,
+                    label: 'Bulk Import',
+                    subtitle: 'Add staff from a CSV',
+                    color: const Color(0xFF059669),
+                    onTap: () => context.push(AppRoutes.bulkImportStaff),
+                  ),
+                  _ActionTile(
                     icon: Icons.bar_chart_rounded,
                     label: 'Staff Report',
                     subtitle: 'View attendance stats',
@@ -319,7 +347,29 @@ class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
                     label: 'Leave Requests',
                     subtitle: 'Approve or reject leaves',
                     color: const Color(0xFFD97706),
-                    onTap: () => context.push(AppRoutes.companyLeaveRequests),
+                    badgeCount: _pendingLeaveCount,
+                    onTap: () async {
+                      await context.push(AppRoutes.companyLeaveRequests);
+                      _getPendingCounts();
+                    },
+                  ),
+                  _ActionTile(
+                    icon: Icons.edit_calendar_rounded,
+                    label: 'Corrections',
+                    subtitle: 'Fix missed punches',
+                    color: const Color(0xFF0D9488),
+                    badgeCount: _pendingCorrectionCount,
+                    onTap: () async {
+                      await context.push(AppRoutes.companyCorrectionRequests);
+                      _getPendingCounts();
+                    },
+                  ),
+                  _ActionTile(
+                    icon: Icons.insights_rounded,
+                    label: 'Analytics',
+                    subtitle: 'Attendance trends',
+                    color: const Color(0xFF7C3AED),
+                    onTap: () => context.push(AppRoutes.companyAnalytics),
                   ),
                 ],
               ),
@@ -659,6 +709,7 @@ class _ActionTile extends StatelessWidget {
   final String subtitle;
   final Color color;
   final VoidCallback onTap;
+  final int badgeCount;
 
   const _ActionTile({
     required this.icon,
@@ -666,6 +717,7 @@ class _ActionTile extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
@@ -675,14 +727,42 @@ class _ActionTile extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Icon(icon, color: color, size: 20),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              if (badgeCount > 0)
+                Positioned(
+                  top: -6,
+                  right: -6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    constraints: const BoxConstraints(minWidth: 18),
+                    decoration: BoxDecoration(
+                      color: AppColors.error,
+                      borderRadius: BorderRadius.circular(AppRadius.full),
+                      border: Border.all(color: AppColors.surface, width: 1.5),
+                    ),
+                    child: Text(
+                      badgeCount > 99 ? '99+' : '$badgeCount',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.caption.copyWith(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(

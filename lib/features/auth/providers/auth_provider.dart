@@ -5,6 +5,7 @@ class AuthProvider extends BaseProvider {
   // ── OTP / auth form state ──────────────────────────────────────────────────
   String phoneNumber = '';
   String otp = '';
+  String otpToken = '';
   bool isAuthenticated = false;
 
   void setPhoneNumber(String v) {
@@ -14,6 +15,11 @@ class AuthProvider extends BaseProvider {
 
   void setOtp(String v) {
     otp = v;
+    notifyListeners();
+  }
+
+  void setOtpToken(String v) {
+    otpToken = v;
     notifyListeners();
   }
 

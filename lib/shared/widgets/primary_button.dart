@@ -113,14 +113,20 @@ class _FilledBtn extends StatelessWidget {
                     strokeWidth: 2, color: Colors.white),
               )
             : Row(
-                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (icon != null) ...[
                     Icon(icon, size: 18),
                     const SizedBox(width: AppSpacing.sm),
                   ],
-                  Text(label, style: AppTextStyles.button),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: AppTextStyles.button,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
                 ],
               ),
       ),
@@ -168,16 +174,19 @@ class _OutlinedBtn extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2, color: color),
               )
             : Row(
-                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (icon != null) ...[
                     Icon(icon, size: 18),
                     const SizedBox(width: AppSpacing.sm),
                   ],
-                  Text(
-                    label,
-                    style: AppTextStyles.button.copyWith(color: color),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: AppTextStyles.button.copyWith(color: color),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
                 ],
               ),

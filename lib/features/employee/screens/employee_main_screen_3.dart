@@ -1,9 +1,12 @@
 import 'package:attend_ease/core/constants/app_colors.dart';
 import 'package:attend_ease/core/constants/app_spacing.dart';
 import 'package:attend_ease/core/constants/app_text_styles.dart';
+import 'package:attend_ease/features/correction/screens/my_corrections_screen.dart';
 import 'package:attend_ease/features/employee/providers/employee_provider.dart';
 import 'package:attend_ease/core/di/service_locator.dart';
+import 'package:attend_ease/core/utils/attendance_time.dart';
 import 'package:attend_ease/features/employee/services/employee_service.dart';
+import 'package:attend_ease/features/leave/services/leave_service.dart';
 import 'package:attend_ease/shared/widgets/app_card.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -28,12 +31,31 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
   DateTime _displayMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
   final EmployeeService _service = getIt<EmployeeService>();
+  final LeaveService _leaveService = LeaveService();
+  final _dateFmt = DateFormat('dd/MM/yy');
   List<DateTime> _presentDates = [];
+  Set<DateTime> _onLeaveDates = {};
+  Set<DateTime> _holidayDates = {};
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchDates());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchDates();
+      _fetchOnLeaveDates();
+      _fetchHolidayDates();
+    });
+  }
+
+  Future<void> _fetchHolidayDates() async {
+    final res = await _service.getHolidays();
+    if (!mounted || !res.success || res.data == null) return;
+    final dates = <DateTime>{};
+    for (final holiday in res.data!) {
+      final dt = AttendanceTime.parseEntryDate(holiday['date'] as String? ?? '');
+      if (dt != null) dates.add(DateTime.utc(dt.year, dt.month, dt.day));
+    }
+    setState(() => _holidayDates = dates);
   }
 
   Future<void> _fetchDates() async {
@@ -45,7 +67,7 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
       final dates = <DateTime>[];
       for (final entry in list) {
         if (entry['isPresent'] == true) {
-          final dt = _parseDate(entry['Date'] as String? ?? '');
+          final dt = AttendanceTime.parseEntryDate(entry['Date'] as String? ?? '');
           if (dt != null) dates.add(DateTime.utc(dt.year, dt.month, dt.day));
         }
       }
@@ -53,39 +75,30 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
     }
   }
 
-  DateTime? _parseDate(String raw) {
-    final parts = raw.split('/');
-    if (parts.length != 3) return null;
-    final d = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    final y = int.tryParse(parts[2]);
-    if (d == null || m == null || y == null) return null;
-    return DateTime(y < 100 ? 2000 + y : y, m, d);
-  }
+  Future<void> _fetchOnLeaveDates() async {
+    final res = await _leaveService.getMyLeaves();
+    if (!mounted) return;
+    if (!res.success || res.data == null) return;
 
-  /// Returns hours worked string "Xh Ym" or null.
-  String? _hoursWorked(String? inTime, String? outTime) {
-    if (inTime == null || outTime == null) return null;
-    if (inTime == '—' || outTime == '—') return null;
-    if (inTime == '00:00' || outTime == '00:00') return null;
-    final inP = inTime.split(':');
-    final outP = outTime.split(':');
-    if (inP.length != 2 || outP.length != 2) return null;
-    final inMins = (int.tryParse(inP[0]) ?? 0) * 60 + (int.tryParse(inP[1]) ?? 0);
-    final outMins = (int.tryParse(outP[0]) ?? 0) * 60 + (int.tryParse(outP[1]) ?? 0);
-    final diff = outMins - inMins;
-    if (diff <= 0) return null;
-    final h = diff ~/ 60;
-    final m = diff % 60;
-    if (h == 0) return '${m}m';
-    if (m == 0) return '${h}h';
-    return '${h}h ${m}m';
+    final dates = <DateTime>{};
+    for (final leave in res.data!) {
+      if ((leave['status'] as String? ?? '') != 'Approved') continue;
+      final from = AttendanceTime.parseEntryDate(leave['fromDate'] as String? ?? '');
+      final to = AttendanceTime.parseEntryDate(leave['toDate'] as String? ?? '');
+      if (from == null || to == null || to.isBefore(from)) continue;
+      var current = from;
+      while (!current.isAfter(to)) {
+        dates.add(DateTime.utc(current.year, current.month, current.day));
+        current = current.add(const Duration(days: 1));
+      }
+    }
+    setState(() => _onLeaveDates = dates);
   }
 
   /// Summary stats for a given month.
   Map<String, int> _monthStats(List<dynamic> report, DateTime month) {
     final records = report.where((e) {
-      final dt = _parseDate(e['Date'] as String? ?? '');
+      final dt = AttendanceTime.parseEntryDate(e['Date'] as String? ?? '');
       if (dt == null) return false;
       return dt.month == month.month && dt.year == month.year;
     }).toList();
@@ -94,13 +107,35 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
     return {'present': present, 'absent': absent, 'total': records.length};
   }
 
-  /// Filtered log for _displayMonth.
+  /// Filtered log for _displayMonth, with synthetic "On Leave" entries merged in.
   List<dynamic> _monthLog(List<dynamic> report) {
-    return report.where((e) {
-      final dt = _parseDate(e['Date'] as String? ?? '');
+    final realEntries = report.where((e) {
+      final dt = AttendanceTime.parseEntryDate(e['Date'] as String? ?? '');
       if (dt == null) return false;
       return dt.month == _displayMonth.month && dt.year == _displayMonth.year;
     }).toList();
+
+    final realDates = realEntries
+        .map((e) => AttendanceTime.parseEntryDate(e['Date'] as String? ?? ''))
+        .whereType<DateTime>()
+        .map((d) => DateTime.utc(d.year, d.month, d.day))
+        .toSet();
+
+    final leaveEntries = _onLeaveDates
+        .where((d) =>
+            d.month == _displayMonth.month &&
+            d.year == _displayMonth.year &&
+            !realDates.contains(d))
+        .map((d) => <String, dynamic>{'Date': _dateFmt.format(d), 'onLeave': true})
+        .toList();
+
+    final merged = [...realEntries, ...leaveEntries];
+    merged.sort((a, b) {
+      final da = AttendanceTime.parseEntryDate(a['Date'] as String? ?? '') ?? DateTime(0);
+      final db = AttendanceTime.parseEntryDate(b['Date'] as String? ?? '') ?? DateTime(0);
+      return db.compareTo(da);
+    });
+    return merged;
   }
 
   void _prevMonth() => setState(() {
@@ -146,7 +181,7 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
                       e['isPresent'] == true ? 'Present' : 'Absent',
                       e['InTime'] ?? '—',
                       e['OutTime'] ?? '—',
-                      _hoursWorked(e['InTime'], e['OutTime']) ?? '—',
+                      AttendanceTime.calcHoursWorked(e['InTime'], e['OutTime']) ?? '—',
                     ])
                 .toList(),
             cellStyle: const pw.TextStyle(fontSize: 10),
@@ -172,7 +207,7 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
         color: AppColors.secondary,
-        onRefresh: _fetchDates,
+        onRefresh: () => Future.wait([_fetchDates(), _fetchOnLeaveDates(), _fetchHolidayDates()]),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -270,12 +305,21 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
                     defaultBuilder: (context, day, focusedDay) {
                       final isPresent = _presentDates
                           .any((d) => isSameDay(d, day));
+                      final isOnLeave = !isPresent &&
+                          _onLeaveDates.any((d) => isSameDay(d, day));
+                      final isHoliday = !isPresent && !isOnLeave &&
+                          _holidayDates.any((d) => isSameDay(d, day));
+                      final markColor = isPresent
+                          ? AppColors.success
+                          : isOnLeave
+                              ? AppColors.secondary
+                              : isHoliday
+                                  ? const Color(0xFF7C3AED)
+                                  : null;
                       return Container(
                         margin: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: isPresent
-                              ? AppColors.success.withValues(alpha: 0.15)
-                              : null,
+                          color: markColor?.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,
@@ -285,22 +329,20 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
                             Text(
                               '${day.day}',
                               style: AppTextStyles.body.copyWith(
-                                color: isPresent
-                                    ? AppColors.success
-                                    : AppColors.textPrimary,
-                                fontWeight: isPresent
+                                color: markColor ?? AppColors.textPrimary,
+                                fontWeight: markColor != null
                                     ? FontWeight.w600
                                     : FontWeight.w400,
                               ),
                             ),
-                            if (isPresent)
+                            if (markColor != null)
                               Positioned(
                                 bottom: 2,
                                 child: Container(
                                   width: 4,
                                   height: 4,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.success,
+                                  decoration: BoxDecoration(
+                                    color: markColor,
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -323,6 +365,19 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
                     children: [
                       Text('${_presentDates.length} days present',
                           style: AppTextStyles.caption),
+                      const SizedBox(width: AppSpacing.sm),
+                      GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const MyCorrectionsScreen()),
+                        ),
+                        child: const Icon(
+                          Icons.edit_calendar_rounded,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       const SizedBox(width: AppSpacing.sm),
                       GestureDetector(
                         onTap: report.isEmpty ? null : () => _exportPdf(report),
@@ -366,10 +421,15 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
                       const SizedBox(height: AppSpacing.sm),
                   itemBuilder: (context, index) {
                     final entry = log[index];
+                    final onLeave = entry['onLeave'] == true;
+                    if (onLeave) return _OnLeaveRow(date: entry['Date'] as String? ?? '—');
+
                     final isPresent = entry['isPresent'] == true;
+                    final isLate = entry['isLate'] == true;
+                    final isOvertime = entry['isOvertime'] == true;
                     final inT = entry['InTime'] as String? ?? '—';
                     final outT = entry['OutTime'] as String? ?? '—';
-                    final worked = _hoursWorked(inT, outT);
+                    final worked = AttendanceTime.calcHoursWorked(inT, outT);
                     return AppCard(
                       padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.md,
@@ -408,7 +468,8 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
                                   style: AppTextStyles.bodyMedium,
                                 ),
                                 const SizedBox(height: 2),
-                                Row(
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
                                     Text(
                                       isPresent ? 'Present' : 'Absent',
@@ -418,6 +479,34 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
                                             : AppColors.error,
                                       ),
                                     ),
+                                    if (isLate) ...[
+                                      Text(
+                                        '  ·  ',
+                                        style: AppTextStyles.caption.copyWith(
+                                            color: AppColors.textHint),
+                                      ),
+                                      Text(
+                                        'Late',
+                                        style: AppTextStyles.caption.copyWith(
+                                          color: AppColors.warning,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                    if (isOvertime) ...[
+                                      Text(
+                                        '  ·  ',
+                                        style: AppTextStyles.caption.copyWith(
+                                            color: AppColors.textHint),
+                                      ),
+                                      Text(
+                                        'Overtime',
+                                        style: AppTextStyles.caption.copyWith(
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                     if (worked != null) ...[
                                       Text(
                                         '  ·  ',
@@ -594,6 +683,49 @@ class _StatChip extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _OnLeaveRow extends StatelessWidget {
+  final String date;
+
+  const _OnLeaveRow({required this.date});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: const Icon(Icons.beach_access_rounded,
+                color: AppColors.secondary, size: 20),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(date, style: AppTextStyles.bodyMedium),
+                const SizedBox(height: 2),
+                Text(
+                  'On Leave',
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.secondary, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

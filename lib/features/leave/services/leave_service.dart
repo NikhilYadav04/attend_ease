@@ -19,6 +19,15 @@ class LeaveService extends ApiService {
     );
   }
 
+  Future<ApiResponse<Map<String, dynamic>>> getMyBalance() async {
+    final token = await HelperFunctions.getEmployeeToken();
+    return get<Map<String, dynamic>>(
+      ApiEndpoints.myLeaveBalance,
+      token: token,
+      fromJson: (json) => json as Map<String, dynamic>,
+    );
+  }
+
   Future<ApiResponse<List<dynamic>>> getMyLeaves() async {
     final token = await HelperFunctions.getEmployeeToken();
     return get<List<dynamic>>(

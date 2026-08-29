@@ -53,9 +53,11 @@ class _CompanySetupScreenState extends State<CompanySetupScreen> {
 
     setState(() => isLoading = true);
 
+    final otpToken = context.read<AuthProvider>().otpToken;
     final hrNumber = await HelperFunctions.getPhone() ?? '';
 
-    final res = await _service.addCompany(companyName, companyHR, companyCity, hrNumber);
+    final res = await _service.addCompany(
+        companyName, companyHR, companyCity, hrNumber, otpToken);
 
     if (!mounted) return;
     setState(() => isLoading = false);

@@ -46,8 +46,10 @@ class _EmployeeSetupScreenState extends State<EmployeeSetupScreen> {
 
     setState(() => _isLoading = true);
 
-    final res =
-        await _service.joinCompany(employeeCompanyName, employeeID, employeeName);
+    final otpToken = context.read<AuthProvider>().otpToken;
+    final res = await _service.joinCompany(
+        employeeCompanyName, employeeID, employeeName, otpToken);
+    if (!mounted) return;
     context.read<AttendanceProvider>().reset();
 
     if (!mounted) return;

@@ -1,34 +1,48 @@
 import 'package:attend_ease/core/constants/app_colors.dart';
 import 'package:attend_ease/core/constants/app_spacing.dart';
 import 'package:attend_ease/core/constants/app_text_styles.dart';
+import 'package:attend_ease/core/utils/attendance_time.dart';
 import 'package:attend_ease/shared/widgets/app_card.dart';
+import 'package:attend_ease/shared/widgets/status_badge.dart';
 import 'package:flutter/material.dart';
 
 class EmployeeAttendanceScreen extends StatelessWidget {
   final String employeeName;
   final String employeeID;
   final List<dynamic> attendance;
+  final List<dynamic> onLeaveDates;
   final int daysPresent;
+  final int? leaveQuota;
+  final int? leaveUsed;
 
   const EmployeeAttendanceScreen({
     super.key,
     required this.employeeName,
     required this.employeeID,
     required this.attendance,
+    this.onLeaveDates = const [],
     required this.daysPresent,
+    this.leaveQuota,
+    this.leaveUsed,
   });
 
   @override
   Widget build(BuildContext context) {
+    final attendedDates = attendance.map((e) => e['Date'] as String? ?? '').toSet();
+    final onLeaveEntries = onLeaveDates
+        .cast<String>()
+        .where((d) => !attendedDates.contains(d))
+        .map((d) => <String, dynamic>{'Date': d, 'onLeave': true});
+
     // Sort records newest first
-    final sorted = [...attendance]..sort((a, b) {
+    final sorted = [...attendance, ...onLeaveEntries]..sort((a, b) {
         final da = _parseDate(a['Date'] as String? ?? '');
         final db = _parseDate(b['Date'] as String? ?? '');
         return db.compareTo(da);
       });
 
-    final total = sorted.length;
-    final present = sorted.where((e) => e['isPresent'] == true).length;
+    final total = attendance.length;
+    final present = attendance.where((e) => e['isPresent'] == true).length;
     final rate = total == 0 ? 0.0 : present / total * 100;
     final isGood = rate >= 75;
 
@@ -108,22 +122,27 @@ class EmployeeAttendanceScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Row(
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.xs,
                   children: [
                     _StatPill(
                         label: '$present Present',
                         color: AppColors.success,
                         icon: Icons.check_circle_rounded),
-                    const SizedBox(width: AppSpacing.sm),
                     _StatPill(
                         label: '${total - present} Absent',
                         color: AppColors.error,
                         icon: Icons.cancel_rounded),
-                    const SizedBox(width: AppSpacing.sm),
                     _StatPill(
                         label: '$total Total',
                         color: AppColors.primary,
                         icon: Icons.calendar_month_rounded),
+                    if (leaveQuota != null)
+                      _StatPill(
+                          label: '${(leaveQuota! - (leaveUsed ?? 0)).clamp(0, leaveQuota!)}/$leaveQuota Leave',
+                          color: AppColors.secondary,
+                          icon: Icons.beach_access_rounded),
                   ],
                 ),
               ],
@@ -171,17 +190,7 @@ class EmployeeAttendanceScreen extends StatelessWidget {
   }
 
   DateTime _parseDate(String date) {
-    // format: dd/MM/yy
-    try {
-      final parts = date.split('/');
-      if (parts.length != 3) return DateTime(0);
-      final day = int.parse(parts[0]);
-      final month = int.parse(parts[1]);
-      final year = 2000 + int.parse(parts[2]);
-      return DateTime(year, month, day);
-    } catch (_) {
-      return DateTime(0);
-    }
+    return AttendanceTime.parseEntryDate(date) ?? DateTime(0);
   }
 }
 
@@ -192,10 +201,47 @@ class _AttendanceRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final date = record['Date'] as String? ?? '—';
+    final onLeave = record['onLeave'] == true;
     final inTime = record['InTime'] as String? ?? '—';
     final outTime = record['OutTime'] as String? ?? '—';
     final isPresent = record['isPresent'] as bool? ?? false;
+    final isLate = record['isLate'] as bool? ?? false;
+    final isOvertime = record['isOvertime'] as bool? ?? false;
     final hasOut = outTime != '00:00' && outTime != '—';
+
+    if (onLeave) {
+      return AppCard(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: const Icon(Icons.beach_access_rounded,
+                  color: AppColors.secondary, size: 22),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(date, style: AppTextStyles.bodyMedium),
+                  const SizedBox(height: 2),
+                  Text('On Leave',
+                      style: AppTextStyles.caption.copyWith(
+                          color: AppColors.secondary, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     String? hoursWorked;
     if (isPresent && hasOut) {
@@ -254,22 +300,23 @@ class _AttendanceRow extends StatelessWidget {
             ),
           ),
 
-          // Status chip
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: isPresent
-                  ? AppColors.success.withValues(alpha: 0.1)
-                  : AppColors.error.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppRadius.full),
-            ),
-            child: Text(
-              isPresent ? 'Present' : 'Absent',
-              style: AppTextStyles.caption.copyWith(
-                color: isPresent ? AppColors.success : AppColors.error,
-                fontWeight: FontWeight.w600,
+          // Status chips
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              StatusBadge(
+                label: isPresent ? 'Present' : 'Absent',
+                status: isPresent ? BadgeStatus.success : BadgeStatus.error,
               ),
-            ),
+              if (isLate) ...[
+                const SizedBox(height: 4),
+                const StatusBadge(label: 'Late', status: BadgeStatus.warning),
+              ],
+              if (isOvertime) ...[
+                const SizedBox(height: 4),
+                const StatusBadge(label: 'Overtime', status: BadgeStatus.neutral),
+              ],
+            ],
           ),
         ],
       ),
@@ -277,21 +324,7 @@ class _AttendanceRow extends StatelessWidget {
   }
 
   String? _calcHours(String inTime, String outTime) {
-    try {
-      final inParts = inTime.split(':');
-      final outParts = outTime.split(':');
-      final inMins = int.parse(inParts[0]) * 60 + int.parse(inParts[1]);
-      final outMins = int.parse(outParts[0]) * 60 + int.parse(outParts[1]);
-      final diff = outMins - inMins;
-      if (diff <= 0) return null;
-      final h = diff ~/ 60;
-      final m = diff % 60;
-      if (h == 0) return '${m}m';
-      if (m == 0) return '${h}h';
-      return '${h}h ${m}m';
-    } catch (_) {
-      return null;
-    }
+    return AttendanceTime.calcHoursWorked(inTime, outTime);
   }
 }
 

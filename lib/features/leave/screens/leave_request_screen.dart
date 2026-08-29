@@ -22,6 +22,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   DateTime? _fromDate;
   DateTime? _toDate;
   bool _loading = false;
+  int? _quota;
+  int? _remaining;
 
   static const _types = ['Sick', 'Casual', 'Annual', 'Emergency'];
   static const _maxReasonLength = 200;
@@ -43,9 +45,24 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchBalance());
+  }
+
+  @override
   void dispose() {
     _reasonCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchBalance() async {
+    final res = await _service.getMyBalance();
+    if (!mounted || !res.success || res.data == null) return;
+    setState(() {
+      _quota = (res.data!['quota'] as num?)?.toInt();
+      _remaining = (res.data!['remaining'] as num?)?.toInt();
+    });
   }
 
   int _workingDays(DateTime from, DateTime to) {
@@ -96,6 +113,12 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       toastMessageError(context, 'Missing reason', 'Please enter a reason.');
       return;
     }
+    final requestedDays = _toDate!.difference(_fromDate!).inDays + 1;
+    if (_remaining != null && requestedDays > _remaining!) {
+      toastMessageError(context, 'Insufficient balance',
+          'Only $_remaining of $_quota days remaining.');
+      return;
+    }
     setState(() => _loading = true);
     final res = await _service.requestLeave(
       _leaveType,
@@ -136,6 +159,32 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Leave balance ───────────────────────────────────────
+              if (_quota != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.event_available_rounded,
+                          size: 16, color: AppColors.primary),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        '$_remaining of $_quota leave days remaining',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
               // ── Leave type chips ───────────────────────────────────
               Text('Leave Type', style: AppTextStyles.bodyMedium),
               const SizedBox(height: AppSpacing.sm),

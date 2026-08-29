@@ -6,10 +6,10 @@ import 'package:attend_ease/core/storage/local_storage.dart';
 import 'package:attend_ease/features/attendance/providers/attendance_provider.dart';
 import 'package:attend_ease/core/di/service_locator.dart';
 import 'package:attend_ease/core/router/app_router.dart';
+import 'package:attend_ease/core/utils/attendance_time.dart';
 import 'package:attend_ease/features/attendance/services/attendance_service.dart';
 import 'package:attend_ease/features/attendance/services/location_service.dart';
 import 'package:attend_ease/features/company/providers/company_provider.dart';
-import 'package:attend_ease/features/company/services/company_service.dart';
 import 'package:attend_ease/features/auth/providers/auth_provider.dart';
 import 'package:attend_ease/features/auth/widgets/otp_auth_widgets.dart';
 import 'package:attend_ease/shared/widgets/app_card.dart';
@@ -38,7 +38,6 @@ class _EmployeeMainScreen2State extends State<EmployeeMainScreen2> {
 
   final AttendanceService _attendanceService = getIt<AttendanceService>();
   final LocationService _locationService = getIt<LocationService>();
-  final CompanyService _companyService = getIt<CompanyService>();
 
   @override
   void initState() {
@@ -74,14 +73,36 @@ class _EmployeeMainScreen2State extends State<EmployeeMainScreen2> {
           result.data!['workStartTime'] as String? ?? '');
 
       LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        await Geolocator.requestPermission();
+        if (!mounted) return;
+        setState(() {
+          _locationVerified = false;
+          _verifyingLocation = false;
+        });
+        toastMessageError(context, 'Permission Required',
+            'Location permission is needed to mark attendance.');
+        return;
       }
 
-      Position currentPosition = await Geolocator.getCurrentPosition(
-          locationSettings:
-              const LocationSettings(accuracy: LocationAccuracy.best));
+      Position currentPosition;
+      try {
+        currentPosition = await Geolocator.getCurrentPosition(
+            locationSettings:
+                const LocationSettings(accuracy: LocationAccuracy.best));
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _locationVerified = false;
+          _verifyingLocation = false;
+        });
+        toastMessageError(context, 'Location Error',
+            'Could not get your location. Enable GPS and try again.');
+        return;
+      }
       if (!mounted) return;
       context.read<AttendanceProvider>().setCurrentPosition(
             currentPosition.latitude,
@@ -126,38 +147,12 @@ class _EmployeeMainScreen2State extends State<EmployeeMainScreen2> {
     }
   }
 
-  void _checkIfLate(DateTime punchTime) {
+  void _checkIfLate(bool isLate) {
+    if (!isLate) return;
+    setState(() => _isLate = true);
     final workStart = context.read<CompanyProvider>().workStartTime;
-    if (workStart.isEmpty) return;
-    final parts = workStart.split(':');
-    if (parts.length != 2) return;
-    final startHour = int.tryParse(parts[0]) ?? 0;
-    final startMin = int.tryParse(parts[1]) ?? 0;
-    if (punchTime.hour > startHour ||
-        (punchTime.hour == startHour && punchTime.minute > startMin)) {
-      setState(() => _isLate = true);
-      toastMessageError(
-          context, 'Late Arrival', 'Punched in after $workStart.');
-    }
-  }
-
-  /// Returns "Xh Ym" from two HH:mm strings. Returns null if unparseable.
-  String? _calcHoursWorked(String inTime, String outTime) {
-    if (inTime == '00:00' || outTime == '00:00') return null;
-    final inParts = inTime.split(':');
-    final outParts = outTime.split(':');
-    if (inParts.length != 2 || outParts.length != 2) return null;
-    final inMins =
-        (int.tryParse(inParts[0]) ?? 0) * 60 + (int.tryParse(inParts[1]) ?? 0);
-    final outMins = (int.tryParse(outParts[0]) ?? 0) * 60 +
-        (int.tryParse(outParts[1]) ?? 0);
-    final diff = outMins - inMins;
-    if (diff <= 0) return null;
-    final h = diff ~/ 60;
-    final m = diff % 60;
-    if (h == 0) return '${m}m';
-    if (m == 0) return '${h}h';
-    return '${h}h ${m}m';
+    toastMessageError(context, 'Late Arrival',
+        workStart.isEmpty ? 'Punched in after work start time.' : 'Punched in after $workStart.');
   }
 
   Future<void> _showPunchConfirmSheet({required bool isPunchIn}) async {
@@ -181,25 +176,42 @@ class _EmployeeMainScreen2State extends State<EmployeeMainScreen2> {
     }
   }
 
+  Future<Position?> _freshPosition() async {
+    try {
+      return await Geolocator.getCurrentPosition(
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.best));
+    } catch (_) {
+      if (mounted) {
+        toastMessageError(context, 'Location Error',
+            'Could not get your location. Enable GPS and try again.');
+      }
+      return null;
+    }
+  }
+
   Future<void> _punchIn() async {
     final attendanceProvider = context.read<AttendanceProvider>();
-    final now = DateTime.now();
-    final inTime = DateFormat('HH:mm').format(now);
-    final date = DateFormat('dd/MM/yy').format(now);
-    final month = DateFormat('MMMM').format(now);
-    final year = DateFormat('yyyy').format(now);
-
-    attendanceProvider.setInTime(inTime);
-    toastMessageSuccess(context, 'Punched In', inTime);
-    await HelperFunctions.setInTime(inTime);
-    _checkIfLate(now);
+    final position = await _freshPosition();
+    if (position == null || !mounted) return;
+    attendanceProvider.setCurrentPosition(
+        position.latitude, position.longitude);
 
     final result =
-        await _attendanceService.markIn(inTime, date, false, month, year);
-    if (mounted && !result.success) {
+        await _attendanceService.markIn(position.latitude, position.longitude);
+    if (!mounted) return;
+
+    if (!result.success || result.data == null) {
       toastMessageError(context, 'Error!', result.message);
+      return;
     }
-    await _companyService.changeCount(1, 0, 1);
+
+    final inTime = result.data!['inTime'] as String;
+    attendanceProvider.setInTime(inTime);
+    await HelperFunctions.setInTime(inTime);
+    if (!mounted) return;
+    toastMessageSuccess(context, 'Punched In', inTime);
+    _checkIfLate(result.data!['isLate'] as bool? ?? false);
   }
 
   Future<void> _punchOut() async {
@@ -218,33 +230,34 @@ class _EmployeeMainScreen2State extends State<EmployeeMainScreen2> {
       return;
     }
 
-    final now = DateTime.now();
-    final outTime = DateFormat('HH:mm').format(now);
-    final date = DateFormat('dd/MM/yy').format(now);
-    final month = DateFormat('MMMM').format(now);
-    final year = DateFormat('yyyy').format(now);
+    final position = await _freshPosition();
+    if (position == null || !mounted) return;
+    attendanceProvider.setCurrentPosition(
+        position.latitude, position.longitude);
+
+    final result =
+        await _attendanceService.markOut(position.latitude, position.longitude);
+    if (!mounted) return;
+
+    if (!result.success || result.data == null) {
+      toastMessageError(context, 'Error!', result.message);
+      return;
+    }
+
+    final outTime = result.data!['outTime'] as String;
+    final date = DateFormat('dd/MM/yy').format(DateTime.now());
 
     attendanceProvider.setOutTime(outTime);
     attendanceProvider.setDate(date);
     attendanceProvider.setPresent(true);
+    attendanceProvider.setTotalDays(result.data!['totalDays'] as int);
 
-    final inTimeDisplay =
-        await HelperFunctions.getInTime() ?? inTime;
+    final inTimeDisplay = await HelperFunctions.getInTime() ?? inTime;
     attendanceProvider.setInTimeDisplay(inTimeDisplay);
+    authProvider.setAuthenticated(false);
 
-    final result = await _attendanceService.markOut(
-        inTimeDisplay, outTime, date, true, month, year);
     if (!mounted) return;
-
-    if (result.success) {
-      if (result.data != null) {
-        attendanceProvider.setTotalDays(result.data!);
-      }
-      toastMessageSuccess(context, 'Punched Out', 'Attendance marked');
-    } else {
-      toastMessageError(context, 'Error!', result.message);
-    }
-    await _companyService.changeCount(0, 1, 0);
+    toastMessageSuccess(context, 'Punched Out', 'Attendance marked');
   }
 
   @override
@@ -253,7 +266,8 @@ class _EmployeeMainScreen2State extends State<EmployeeMainScreen2> {
     final isPresent = context.watch<AttendanceProvider>().isPresent;
     final ap = context.watch<AttendanceProvider>();
     final hasPunchedIn = ap.inTime.isNotEmpty && ap.inTime != '00:00';
-    final hoursWorked = _calcHoursWorked(ap.inTimeDisplay, ap.outTime);
+    final hoursWorked =
+        AttendanceTime.calcHoursWorked(ap.inTimeDisplay, ap.outTime);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -362,13 +376,13 @@ class _EmployeeMainScreen2State extends State<EmployeeMainScreen2> {
                       child: Row(
                         children: [
                           const Icon(Icons.schedule_rounded,
-                              color: Color(0xFFD97706), size: 16),
+                              color: AppColors.warning, size: 16),
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Text(
                               'Late arrival — after work start time.',
                               style: AppTextStyles.caption
-                                  .copyWith(color: const Color(0xFFD97706)),
+                                  .copyWith(color: AppColors.warning),
                             ),
                           ),
                         ],

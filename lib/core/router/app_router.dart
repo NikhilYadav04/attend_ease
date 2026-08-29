@@ -10,6 +10,15 @@ import 'package:attend_ease/features/company/screens/admin_profile_screen.dart';
 import 'package:attend_ease/features/company/screens/company_hr_screen.dart';
 import 'package:attend_ease/features/company/screens/company_location_screen.dart';
 import 'package:attend_ease/features/company/screens/company_setup_screen.dart';
+import 'package:attend_ease/features/company/screens/bulk_import_screen.dart';
+import 'package:attend_ease/features/company/screens/company_analytics_screen.dart';
+import 'package:attend_ease/features/company/screens/company_settings_screen.dart';
+import 'package:attend_ease/features/company/screens/manage_admins_screen.dart';
+import 'package:attend_ease/features/company/screens/manage_holidays_screen.dart';
+import 'package:attend_ease/features/company/screens/audit_log_screen.dart';
+import 'package:attend_ease/features/company/screens/team_leave_calendar_screen.dart';
+import 'package:attend_ease/features/correction/screens/hr_correction_screen.dart';
+import 'package:attend_ease/features/correction/screens/my_corrections_screen.dart';
 import 'package:attend_ease/features/employee/screens/employee_main_screen.dart';
 import 'package:attend_ease/features/employee/screens/employee_setup_screen.dart';
 import 'package:attend_ease/features/employee/screens/employee_profile_screen.dart';
@@ -31,11 +40,20 @@ abstract class AppRoutes {
   static const adminProfile = '/company/profile';
   static const companyAddStaff = '/company/add-staff';
   static const companyLeaveRequests = '/company/leave-requests';
+  static const companyCorrectionRequests = '/company/correction-requests';
+  static const companyManageAdmins = '/company/manage-admins';
+  static const companyAnalytics = '/company/analytics';
+  static const companySettings = '/company/settings';
+  static const bulkImportStaff = '/company/bulk-import';
+  static const companyHolidays = '/company/holidays';
+  static const companyAuditLog = '/company/audit-log';
+  static const companyTeamLeaveCalendar = '/company/team-leave-calendar';
   static const employeeSetup = '/employee/setup';
   static const employeeDashboard = '/employee/dashboard';
   static const employeeProfile = '/employee/profile';
   static const employeeBiometric = '/employee/biometric';
   static const employeeLeaveRequest = '/employee/leave-request';
+  static const employeeCorrections = '/employee/corrections';
   static const call = '/call';
 }
 
@@ -101,6 +119,38 @@ final goRouter = GoRouter(
       path: AppRoutes.companyLeaveRequests,
       builder: (context, state) => const HrLeaveScreen(),
     ),
+    GoRoute(
+      path: AppRoutes.companyCorrectionRequests,
+      builder: (context, state) => const HrCorrectionScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.companyManageAdmins,
+      builder: (context, state) => const ManageAdminsScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.companyAnalytics,
+      builder: (context, state) => const CompanyAnalyticsScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.companySettings,
+      builder: (context, state) => const CompanySettingsScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.bulkImportStaff,
+      builder: (context, state) => const BulkImportScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.companyHolidays,
+      builder: (context, state) => const ManageHolidaysScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.companyAuditLog,
+      builder: (context, state) => const AuditLogScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.companyTeamLeaveCalendar,
+      builder: (context, state) => const TeamLeaveCalendarScreen(),
+    ),
 
     // ── Employee ──────────────────────────────────────────────────────────────
     GoRoute(
@@ -122,6 +172,10 @@ final goRouter = GoRouter(
     GoRoute(
       path: AppRoutes.employeeLeaveRequest,
       builder: (context, state) => const LeaveRequestScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.employeeCorrections,
+      builder: (context, state) => const MyCorrectionsScreen(),
     ),
 
     // ── Shared ────────────────────────────────────────────────────────────────

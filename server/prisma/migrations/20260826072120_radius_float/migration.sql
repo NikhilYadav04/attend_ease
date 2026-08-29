@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "locations" ALTER COLUMN "radius" SET DATA TYPE DOUBLE PRECISION;

@@ -1,3 +1,4 @@
+
 name: attend_ease
 description: "Attendance management app for companies and employees."
 publish_to: "none"
@@ -23,6 +24,7 @@ dependencies:
   geolocator: ^13.0.0
   geocoding: ^3.0.0
   shared_preferences: ^2.2.3
+  flutter_secure_storage: ^9.2.2
   intl: ^0.19.0
   local_auth: ^2.3.0
   table_calendar: ^3.1.2
@@ -32,6 +34,9 @@ dependencies:
   zego_uikit_prebuilt_call: ^4.14.5
   pdf: ^3.10.8
   printing: ^5.12.0
+  fl_chart: ^1.2.0
+  file_picker: ^10.3.8
+  csv: ^8.0.0
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,11 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HelperFunctions {
+  static const FlutterSecureStorage _secure = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+
   static String HR_KEY = "HR_TOKEN_KEY";
   static String COMPANY_NAME_KEY = "COMPANY_NAME_TOKEN";
   static String COMPANY_ID_KEY = "COMPANY_ID_TOKEN";
@@ -123,26 +128,37 @@ class HelperFunctions {
 
 // set company JWT token
   static Future<bool> setCompanyToken(String token) async {
-    SharedPreferences sf = await SharedPreferences.getInstance();
-    return sf.setString(COMPANY_JWT_KEY, token);
+    await _secure.write(key: COMPANY_JWT_KEY, value: token);
+    return true;
   }
 
 // get company JWT token
   static Future<String?> getCompanyToken() async {
-    SharedPreferences sf = await SharedPreferences.getInstance();
-    return sf.getString(COMPANY_JWT_KEY);
+    final token = await _secure.read(key: COMPANY_JWT_KEY);
+    if (token != null) return token;
+    return _migrateToken(COMPANY_JWT_KEY);
   }
 
 // set employee JWT token
   static Future<bool> setEmployeeToken(String token) async {
-    SharedPreferences sf = await SharedPreferences.getInstance();
-    return sf.setString(EMPLOYEE_JWT_KEY, token);
+    await _secure.write(key: EMPLOYEE_JWT_KEY, value: token);
+    return true;
   }
 
 // get employee JWT token
   static Future<String?> getEmployeeToken() async {
+    final token = await _secure.read(key: EMPLOYEE_JWT_KEY);
+    if (token != null) return token;
+    return _migrateToken(EMPLOYEE_JWT_KEY);
+  }
+
+  static Future<String?> _migrateToken(String key) async {
     SharedPreferences sf = await SharedPreferences.getInstance();
-    return sf.getString(EMPLOYEE_JWT_KEY);
+    final legacy = sf.getString(key);
+    if (legacy == null || legacy.isEmpty) return legacy;
+    await _secure.write(key: key, value: legacy);
+    await sf.remove(key);
+    return legacy;
   }
 
   static const _onboardingKey = 'ONBOARDING_SEEN';

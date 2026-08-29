@@ -25,6 +25,8 @@ class ApiEndpoints {
 
   // Employee add and setup
   static String get addEmployee => '$_base/api/v1/employee/add-employee';
+  static String get bulkAddEmployees => '$_base/api/v1/employee/bulk-add-employees';
+  static String get removeEmployee => '$_base/api/v1/employee/remove-employee';
   static String get joinEmployee => '$_base/api/v1/employee/join-employee';
 
   // Attendance
@@ -49,9 +51,38 @@ class ApiEndpoints {
   // Notifications
   static String get sendNotifications => '$_base/api/v1/company/send-notifications';
 
+  // Company Admins
+  static String get addAdmin => '$_base/api/v1/company/add-admin';
+  static String get listAdmins => '$_base/api/v1/company/admins';
+  static String get removeAdmin => '$_base/api/v1/company/remove-admin';
+
+  // Analytics
+  static String get companyAnalytics => '$_base/api/v1/company/analytics';
+
+  // Company Settings
+  static String get getCompanySettings => '$_base/api/v1/company/settings';
+  static String get updateCompanySettings => '$_base/api/v1/company/update-settings';
+
   // Leave Management
   static String get requestLeave => '$_base/api/v1/leave/request-leave';
   static String get myLeaves => '$_base/api/v1/leave/my-leaves';
   static String get pendingLeaves => '$_base/api/v1/leave/pending-leaves';
   static String get actionLeave => '$_base/api/v1/leave/action-leave';
+
+  // Attendance Corrections
+  static String get requestCorrection => '$_base/api/v1/correction/request-correction';
+  static String get myCorrections => '$_base/api/v1/correction/my-corrections';
+  static String get pendingCorrections => '$_base/api/v1/correction/pending-corrections';
+  static String get actionCorrection => '$_base/api/v1/correction/action-correction';
+
+  // Leave balance
+  static String get myLeaveBalance => '$_base/api/v1/leave/my-balance';
+
+  // Holidays
+  static String get addHoliday => '$_base/api/v1/holiday/add-holiday';
+  static String get listHolidays => '$_base/api/v1/holiday/list';
+  static String get removeHoliday => '$_base/api/v1/holiday/remove-holiday';
+
+  // Audit log
+  static String get auditLog => '$_base/api/v1/audit/log';
 }
