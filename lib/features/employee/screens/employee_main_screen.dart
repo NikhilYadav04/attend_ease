@@ -1,12 +1,12 @@
 import 'package:attend_ease/core/constants/app_colors.dart';
 import 'package:attend_ease/core/constants/app_text_styles.dart';
-import 'package:attend_ease/core/storage/local_storage.dart';
 import 'package:attend_ease/features/employee/screens/employee_main_screen_1.dart';
 import 'package:attend_ease/features/employee/screens/employee_main_screen_2.dart';
 import 'package:attend_ease/features/employee/screens/employee_main_screen_3.dart';
 import 'package:attend_ease/features/leave/screens/my_leaves_screen.dart';
 import 'package:attend_ease/features/auth/providers/auth_provider.dart';
 import 'package:attend_ease/core/router/app_router.dart';
+import 'package:attend_ease/shared/utils/logout_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -84,13 +84,7 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
               IconButton(
                 icon: const Icon(Icons.logout_rounded,
                     color: AppColors.textSecondary),
-                onPressed: () async {
-                  await HelperFunctions.setStatus(false);
-                  await HelperFunctions.setEmployeeName('');
-                  await HelperFunctions.setEmployeeID('');
-                  if (!context.mounted) return;
-                  context.go(AppRoutes.otp);
-                },
+                onPressed: () => performLogout(context),
               ),
             ],
             bottom: TabBar(

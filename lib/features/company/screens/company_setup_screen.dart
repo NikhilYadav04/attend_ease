@@ -8,6 +8,7 @@ import 'package:attend_ease/core/router/app_router.dart';
 import 'package:attend_ease/features/company/services/company_service.dart';
 import 'package:attend_ease/features/auth/providers/auth_provider.dart';
 import 'package:attend_ease/features/auth/widgets/otp_auth_widgets.dart';
+import 'package:attend_ease/shared/utils/logout_helper.dart';
 import 'package:attend_ease/shared/widgets/app_text_field.dart';
 import 'package:attend_ease/shared/widgets/primary_button.dart';
 import 'package:flutter/material.dart';
@@ -91,12 +92,7 @@ class _CompanySetupScreenState extends State<CompanySetupScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: AppColors.textSecondary),
-            onPressed: () async {
-              await HelperFunctions.setStatus(false);
-              await HelperFunctions.setCompanyName('');
-              if (!mounted) return;
-              context.go(AppRoutes.otp);
-            },
+            onPressed: () => performLogout(context),
           ),
         ],
       ),

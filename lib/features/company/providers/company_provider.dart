@@ -74,4 +74,22 @@ class CompanyProvider extends BaseProvider {
     totalCount = 0;
     notifyListeners();
   }
+
+  void reset() {
+    inCount = 0;
+    outCount = 0;
+    totalCount = 0;
+    currentDate = '';
+    reportStaff = [];
+    staffList = [];
+    isSubmit = false;
+    sliderValue = 202.25;
+    latitude = null;
+    longitude = null;
+    radius = 0;
+    lat1 = 0;
+    lng1 = 0;
+    workStartTime = '';
+    notifyListeners();
+  }
 }

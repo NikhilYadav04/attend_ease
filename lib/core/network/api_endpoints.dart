@@ -28,6 +28,8 @@ class ApiEndpoints {
   static String get bulkAddEmployees => '$_base/api/v1/employee/bulk-add-employees';
   static String get removeEmployee => '$_base/api/v1/employee/remove-employee';
   static String get joinEmployee => '$_base/api/v1/employee/join-employee';
+  static String get myProfile => '$_base/api/v1/employee/my-profile';
+  static String get updateProfile => '$_base/api/v1/employee/update-profile';
 
   // Attendance
   static String get markAttendanceIn => '$_base/api/v1/attendance/mark-in';
@@ -67,12 +69,14 @@ class ApiEndpoints {
   static String get requestLeave => '$_base/api/v1/leave/request-leave';
   static String get myLeaves => '$_base/api/v1/leave/my-leaves';
   static String get pendingLeaves => '$_base/api/v1/leave/pending-leaves';
+  static String get allLeaves => '$_base/api/v1/leave/all-leaves';
   static String get actionLeave => '$_base/api/v1/leave/action-leave';
 
   // Attendance Corrections
   static String get requestCorrection => '$_base/api/v1/correction/request-correction';
   static String get myCorrections => '$_base/api/v1/correction/my-corrections';
   static String get pendingCorrections => '$_base/api/v1/correction/pending-corrections';
+  static String get allCorrections => '$_base/api/v1/correction/all-corrections';
   static String get actionCorrection => '$_base/api/v1/correction/action-correction';
 
   // Leave balance

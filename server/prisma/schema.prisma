@@ -100,12 +100,14 @@ model StaffCount {
 }
 
 model StaffReportEntry {
-  id          String  @id @default(uuid())
-  companyId   String  @map("company_id")
-  company     Company @relation(fields: [companyId], references: [id])
-  isSubmit    Boolean @map("is_submit")
-  totalCount  Int     @map("total_count")
-  currentDate String  @map("current_date")
+  id             String   @id @default(uuid())
+  companyId      String   @map("company_id")
+  company        Company  @relation(fields: [companyId], references: [id])
+  isSubmit       Boolean  @map("is_submit")
+  totalCount     Int      @map("total_count")
+  totalEmployees Int?     @map("total_employees")
+  currentDate    String   @map("current_date")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   @@map("staff_report_entries")
 }

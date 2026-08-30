@@ -24,11 +24,15 @@ class EmployeeMainScreen1 extends StatefulWidget {
   State<EmployeeMainScreen1> createState() => _EmployeeMainScreen1State();
 }
 
-class _EmployeeMainScreen1State extends State<EmployeeMainScreen1> {
+class _EmployeeMainScreen1State extends State<EmployeeMainScreen1>
+    with AutomaticKeepAliveClientMixin {
   final AttendanceService _attendanceService = getIt<AttendanceService>();
   final EmployeeService _employeeService = getIt<EmployeeService>();
   final DateTime _now = DateTime.now();
   bool _loading = true;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -128,6 +132,7 @@ class _EmployeeMainScreen1State extends State<EmployeeMainScreen1> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_loading) {
       return const _EmployeeDashboardSkeleton();
     }

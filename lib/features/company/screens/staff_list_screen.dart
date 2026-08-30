@@ -11,6 +11,7 @@ import 'package:attend_ease/features/auth/widgets/otp_auth_widgets.dart';
 import 'package:attend_ease/shared/widgets/app_card.dart';
 import 'package:attend_ease/shared/widgets/app_text_field.dart';
 import 'package:attend_ease/shared/widgets/primary_button.dart';
+import 'package:attend_ease/shared/utils/whatsapp_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -54,13 +55,29 @@ class _StaffListScreenState extends State<StaffListScreen> {
     return (days / 30 * 100).clamp(0, 100);
   }
 
-  Future<void> _sendNotify(String employeeName) async {
+  Future<void> _sendNotify(String employeeName,
+      {int? daysPresent, int? daysAbsent, double? percent}) async {
     final res = await _service.sendNotify(employeeName);
     if (!mounted) return;
-    if (res.success) {
-      toastMessageSuccess(context, 'Sent', 'Notification sent to $employeeName');
+    if (!res.success || res.data == null || res.data!.isEmpty) {
+      toastMessageError(context, 'Error',
+          res.message.isNotEmpty ? res.message : 'No phone number on file for $employeeName.');
+      return;
+    }
+
+    final statsLine = (daysPresent != null && daysAbsent != null && percent != null)
+        ? '\n\nYour current attendance: $daysPresent present, $daysAbsent absent '
+            '(${percent.toStringAsFixed(0)}% this cycle).'
+        : '';
+    final message =
+        'Hi $employeeName, this is a reminder from HR to mark/regularize your attendance.'
+        '$statsLine';
+    final launched = await launchWhatsAppMessage(res.data!, message);
+    if (!mounted) return;
+    if (launched) {
+      toastMessageSuccess(context, 'Notified', '$employeeName has been notified.');
     } else {
-      toastMessageError(context, 'Error', res.message);
+      toastMessageError(context, 'Error', 'Could not open WhatsApp.');
     }
   }
 
@@ -450,7 +467,12 @@ class _StaffListScreenState extends State<StaffListScreen> {
                                   ? AppColors.success
                                   : AppColors.error,
                               icon: Icons.notifications_rounded,
-                              onPressed: () => _sendNotify(name),
+                              onPressed: () => _sendNotify(
+                                name,
+                                daysPresent: daysPresent,
+                                daysAbsent: daysAbsent,
+                                percent: percent,
+                              ),
                             ),
                           ),
                           const SizedBox(width: AppSpacing.sm),

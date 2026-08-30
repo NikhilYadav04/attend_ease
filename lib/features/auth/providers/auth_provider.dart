@@ -72,14 +72,20 @@ class AuthProvider extends BaseProvider {
     await HelperFunctions.setCompanyID('');
     await HelperFunctions.setEmployeeName('');
     await HelperFunctions.setEmployeeID('');
+    await HelperFunctions.setAdminName('');
     await HelperFunctions.setCompanyToken('');
     await HelperFunctions.setEmployeeToken('');
     phone = null;
     cName = null;
     cID = null;
+    adminName = null;
     eName = null;
     eID = null;
     eCName = null;
+    phoneNumber = '';
+    otp = '';
+    otpToken = '';
+    isAuthenticated = false;
     notifyListeners();
   }
 }

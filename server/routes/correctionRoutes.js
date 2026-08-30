@@ -6,6 +6,7 @@ const {
   requestCorrection,
   myCorrections,
   pendingCorrections,
+  allCorrections,
   actionCorrection,
 } = require("../controllers/correctionController");
 
@@ -16,6 +17,7 @@ const employeeOnly = [verifyToken, requireRole("employee"), requireActiveEmploye
 correctionRouter.post("/request-correction", employeeOnly, requireFields("date", "reason"), requestCorrection);
 correctionRouter.get("/my-corrections",      employeeOnly, myCorrections);
 correctionRouter.get("/pending-corrections", hrOnly, pendingCorrections);
+correctionRouter.get("/all-corrections",     hrOnly, allCorrections);
 correctionRouter.post("/action-correction",  hrOnly, requireFields("correctionId", "action"), actionCorrection);
 
 module.exports = correctionRouter;

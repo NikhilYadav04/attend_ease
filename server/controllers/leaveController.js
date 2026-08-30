@@ -122,6 +122,47 @@ const pendingLeaves = async (req, res) => {
   }
 };
 
+const allLeaves = async (req, res) => {
+  try {
+    const { companyName } = req.user;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const company = await prisma.company.findUnique({ where: { companyName } });
+
+    if (!company) {
+      return res.status(200).json({
+        success: true,
+        message: "OK",
+        data: { items: [], page, totalPages: 1, totalCount: 0 },
+      });
+    }
+
+    const [leaves, totalCount] = await Promise.all([
+      prisma.leave.findMany({
+        where: { companyId: company.id },
+        include: { employee: true, company: true },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.leave.count({ where: { companyId: company.id } }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "OK",
+      data: {
+        items: leaves.map(leaveJSON),
+        page,
+        totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+        totalCount,
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
 const actionLeave = async (req, res) => {
   try {
     const { leaveId, action } = req.body;
@@ -159,4 +200,4 @@ const actionLeave = async (req, res) => {
   }
 };
 
-module.exports = { requestLeave, myLeaves, myBalance, pendingLeaves, actionLeave };
+module.exports = { requestLeave, myLeaves, myBalance, pendingLeaves, allLeaves, actionLeave };

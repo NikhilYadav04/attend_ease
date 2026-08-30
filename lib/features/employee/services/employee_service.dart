@@ -79,4 +79,24 @@ class EmployeeService extends ApiService {
       fromJson: (json) => json as List<dynamic>,
     );
   }
+
+  // Get own profile — GET, employee token
+  Future<ApiResponse<Map<String, dynamic>>> getProfile() async {
+    final token = await HelperFunctions.getEmployeeToken();
+    return get<Map<String, dynamic>>(
+      ApiEndpoints.myProfile,
+      token: token,
+      fromJson: (json) => json as Map<String, dynamic>,
+    );
+  }
+
+  // Update own job title — POST, employee token
+  Future<ApiResponse<void>> updateProfile(String employeePosition) async {
+    final token = await HelperFunctions.getEmployeeToken();
+    return post<void>(
+      ApiEndpoints.updateProfile,
+      token: token,
+      data: {'employeePosition': employeePosition},
+    );
+  }
 }

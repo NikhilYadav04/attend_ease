@@ -46,6 +46,17 @@ class LeaveService extends ApiService {
     );
   }
 
+  Future<ApiResponse<Map<String, dynamic>>> getAllLeaves(
+      {int page = 1, int limit = 20}) async {
+    final token = await HelperFunctions.getCompanyToken();
+    return get<Map<String, dynamic>>(
+      ApiEndpoints.allLeaves,
+      token: token,
+      queryParameters: {'page': page, 'limit': limit},
+      fromJson: (json) => json as Map<String, dynamic>,
+    );
+  }
+
   Future<ApiResponse<void>> actionLeave(String leaveId, String action) async {
     final token = await HelperFunctions.getCompanyToken();
     return post<void>(

@@ -10,6 +10,8 @@ const {
   changeCount,
   getCount,
   removeEmployee,
+  getProfile,
+  updateProfile,
 } = require("../controllers/employeeController");
 
 const employeeRouter = express.Router();
@@ -23,5 +25,7 @@ employeeRouter.post("/join-employee",   requireFields("companyName", "employeeID
 employeeRouter.get("/get-history",      employeeOnly, getHistory);
 employeeRouter.post("/change-count",    employeeOnly, requireFields("inCount", "outCount", "TotalCount"), changeCount);
 employeeRouter.get("/get-count",        hrOnly, getCount);
+employeeRouter.get("/my-profile",       employeeOnly, getProfile);
+employeeRouter.post("/update-profile",  employeeOnly, requireFields("employeePosition"), updateProfile);
 
 module.exports = employeeRouter;

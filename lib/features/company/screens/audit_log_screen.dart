@@ -19,6 +19,9 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
   final _displayFmt = DateFormat('dd MMM yyyy, hh:mm a');
   List<dynamic> _logs = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  int _page = 1;
+  int _totalPages = 1;
 
   static const _actionIcons = {
     'admin_added': Icons.admin_panel_settings_rounded,
@@ -58,12 +61,31 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
 
   Future<void> _fetchLogs() async {
     setState(() => _loading = true);
-    final res = await _service.getAuditLog();
+    final res = await _service.getAuditLog(page: 1);
     if (!mounted) return;
     if (res.success && res.data != null) {
-      setState(() => _logs = res.data!);
+      setState(() {
+        _logs = res.data!['items'] as List<dynamic>? ?? [];
+        _page = res.data!['page'] as int? ?? 1;
+        _totalPages = res.data!['totalPages'] as int? ?? 1;
+      });
     }
     setState(() => _loading = false);
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _page >= _totalPages) return;
+    setState(() => _loadingMore = true);
+    final res = await _service.getAuditLog(page: _page + 1);
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      setState(() {
+        _logs = [..._logs, ...(res.data!['items'] as List<dynamic>? ?? [])];
+        _page = res.data!['page'] as int? ?? _page;
+        _totalPages = res.data!['totalPages'] as int? ?? _totalPages;
+      });
+    }
+    setState(() => _loadingMore = false);
   }
 
   @override
@@ -107,9 +129,32 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
                   : ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(AppSpacing.md),
-                      itemCount: _logs.length,
+                      itemCount: _logs.length + (_page < _totalPages ? 1 : 0),
                       separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
                       itemBuilder: (context, index) {
+                        if (index == _logs.length) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: AppSpacing.md),
+                              child: _loadingMore
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.primary),
+                                    )
+                                  : TextButton(
+                                      onPressed: _loadMore,
+                                      child: Text('Load More',
+                                          style: AppTextStyles.bodyMedium
+                                              .copyWith(
+                                                  color: AppColors.primary)),
+                                    ),
+                            ),
+                          );
+                        }
                         final log = _logs[index];
                         final action = log['action'] as String? ?? '';
                         final actorName = log['actorName'] as String? ?? '';

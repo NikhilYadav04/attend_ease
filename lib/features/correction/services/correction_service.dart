@@ -37,6 +37,17 @@ class CorrectionService extends ApiService {
     );
   }
 
+  Future<ApiResponse<Map<String, dynamic>>> getAllCorrections(
+      {int page = 1, int limit = 20}) async {
+    final token = await HelperFunctions.getCompanyToken();
+    return get<Map<String, dynamic>>(
+      ApiEndpoints.allCorrections,
+      token: token,
+      queryParameters: {'page': page, 'limit': limit},
+      fromJson: (json) => json as Map<String, dynamic>,
+    );
+  }
+
   Future<ApiResponse<void>> actionCorrection(String correctionId, String action) async {
     final token = await HelperFunctions.getCompanyToken();
     return post<void>(

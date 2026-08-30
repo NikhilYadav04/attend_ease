@@ -2,9 +2,9 @@ import 'package:attend_ease/core/constants/app_colors.dart';
 import 'package:attend_ease/core/constants/app_spacing.dart';
 import 'package:attend_ease/core/constants/app_text_styles.dart';
 import 'package:attend_ease/core/router/app_router.dart';
-import 'package:attend_ease/core/storage/local_storage.dart';
 import 'package:attend_ease/features/auth/providers/auth_provider.dart';
 import 'package:attend_ease/features/company/providers/company_provider.dart';
+import 'package:attend_ease/shared/utils/logout_helper.dart';
 import 'package:attend_ease/shared/widgets/app_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -222,13 +222,7 @@ class AdminProfileScreen extends StatelessWidget {
                     icon: Icons.logout_rounded,
                     label: 'Logout',
                     color: AppColors.error,
-                    onTap: () async {
-                      await HelperFunctions.setStatus(false);
-                      await HelperFunctions.setCompanyName('');
-                      await HelperFunctions.setCompanyID('');
-                      if (!context.mounted) return;
-                      context.go(AppRoutes.otp);
-                    },
+                    onTap: () => performLogout(context),
                   ),
                 ],
               ),

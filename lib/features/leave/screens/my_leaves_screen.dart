@@ -17,9 +17,13 @@ class MyLeavesScreen extends StatefulWidget {
   State<MyLeavesScreen> createState() => _MyLeavesScreenState();
 }
 
-class _MyLeavesScreenState extends State<MyLeavesScreen> {
+class _MyLeavesScreenState extends State<MyLeavesScreen>
+    with AutomaticKeepAliveClientMixin {
   final LeaveService _service = LeaveService();
   bool _loading = true;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -47,6 +51,7 @@ class _MyLeavesScreenState extends State<MyLeavesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final leaves = context.watch<LeaveProvider>().myLeaves;
 
     return Scaffold(

@@ -7,4 +7,9 @@ class EmployeeProvider extends BaseProvider {
     report = r;
     notifyListeners();
   }
+
+  void reset() {
+    report = [];
+    notifyListeners();
+  }
 }

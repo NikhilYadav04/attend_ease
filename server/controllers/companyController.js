@@ -110,8 +110,18 @@ const storeHistory = async (req, res) => {
       return res.status(404).json({ success: false, message: "Company not found" });
     }
 
+    const totalEmployees = await prisma.employee.count({
+      where: { companyId: company.id, deletedAt: null },
+    });
+
     await prisma.staffReportEntry.create({
-      data: { companyId: company.id, isSubmit: true, totalCount: Number(totalCount), currentDate },
+      data: {
+        companyId: company.id,
+        isSubmit: true,
+        totalCount: Number(totalCount),
+        totalEmployees,
+        currentDate,
+      },
     });
 
     const list = await prisma.staffReportEntry.findMany({ where: { companyId: company.id } });
@@ -143,11 +153,38 @@ const getHistory = async (req, res) => {
 const historyList = async (req, res) => {
   try {
     const { companyName } = req.user;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const company = await prisma.company.findUnique({ where: { companyName } });
-    const list = company
-      ? await prisma.staffReportEntry.findMany({ where: { companyId: company.id } })
-      : [];
-    return res.status(200).json({ success: true, message: "OK", data: list });
+
+    if (!company) {
+      return res.status(200).json({
+        success: true,
+        message: "OK",
+        data: { items: [], page, totalPages: 1, totalCount: 0 },
+      });
+    }
+
+    const [list, totalCount] = await Promise.all([
+      prisma.staffReportEntry.findMany({
+        where: { companyId: company.id },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.staffReportEntry.count({ where: { companyId: company.id } }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "OK",
+      data: {
+        items: list,
+        page,
+        totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+        totalCount,
+      },
+    });
   } catch (e) {
     return res.status(500).json({ success: false, message: e.message });
   }

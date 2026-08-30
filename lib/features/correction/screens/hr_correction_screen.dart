@@ -21,6 +21,11 @@ class _HrCorrectionScreenState extends State<HrCorrectionScreen> {
   final CorrectionService _service = CorrectionService();
   final TextEditingController _searchCtrl = TextEditingController();
   bool _loading = true;
+  bool _historyMode = false;
+  bool _historyLoaded = false;
+  bool _loadingMore = false;
+  int _historyPage = 1;
+  int _historyTotalPages = 1;
   String _searchQuery = '';
 
   @override
@@ -48,6 +53,44 @@ class _HrCorrectionScreenState extends State<HrCorrectionScreen> {
     setState(() => _loading = false);
   }
 
+  Future<void> _fetchHistory() async {
+    setState(() => _loading = true);
+    final res = await _service.getAllCorrections(page: 1);
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      context
+          .read<CorrectionProvider>()
+          .setAllCorrections(res.data!['items'] as List<dynamic>? ?? []);
+      _historyPage = res.data!['page'] as int? ?? 1;
+      _historyTotalPages = res.data!['totalPages'] as int? ?? 1;
+    }
+    setState(() {
+      _loading = false;
+      _historyLoaded = true;
+    });
+  }
+
+  Future<void> _loadMoreHistory() async {
+    if (_loadingMore || _historyPage >= _historyTotalPages) return;
+    setState(() => _loadingMore = true);
+    final res = await _service.getAllCorrections(page: _historyPage + 1);
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      context
+          .read<CorrectionProvider>()
+          .appendAllCorrections(res.data!['items'] as List<dynamic>? ?? []);
+      _historyPage = res.data!['page'] as int? ?? _historyPage;
+      _historyTotalPages = res.data!['totalPages'] as int? ?? _historyTotalPages;
+    }
+    setState(() => _loadingMore = false);
+  }
+
+  void _switchMode(bool history) {
+    if (_historyMode == history) return;
+    setState(() => _historyMode = history);
+    if (history && !_historyLoaded) _fetchHistory();
+  }
+
   Future<void> _action(String correctionId, String action) async {
     final res = await _service.actionCorrection(correctionId, action);
     if (!mounted) return;
@@ -62,7 +105,12 @@ class _HrCorrectionScreenState extends State<HrCorrectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final corrections = context.watch<CorrectionProvider>().pendingCorrections;
+    final provider = context.watch<CorrectionProvider>();
+    final corrections = _historyMode
+        ? provider.allCorrections
+            .where((c) => (c['status'] as String? ?? '') != 'Pending')
+            .toList()
+        : provider.pendingCorrections;
     final filteredCorrections = corrections.where((c) {
       final name = (c['employeeName'] as String? ?? '').toLowerCase();
       return _searchQuery.isEmpty || name.contains(_searchQuery);
@@ -79,7 +127,7 @@ class _HrCorrectionScreenState extends State<HrCorrectionScreen> {
         ),
         body: RefreshIndicator(
           color: AppColors.primary,
-          onRefresh: _fetchCorrections,
+          onRefresh: _historyMode ? _fetchHistory : _fetchCorrections,
           child: _loading
               ? const _CorrectionListSkeleton()
               : SingleChildScrollView(
@@ -124,10 +172,31 @@ class _HrCorrectionScreenState extends State<HrCorrectionScreen> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Row(
+                        children: [
+                          _ModeChip(
+                            label: 'Pending',
+                            selected: !_historyMode,
+                            onTap: () => _switchMode(false),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          _ModeChip(
+                            label: 'History',
+                            selected: _historyMode,
+                            onTap: () => _switchMode(true),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Pending Requests', style: AppTextStyles.title),
-                          Text('${filteredCorrections.length} pending', style: AppTextStyles.caption),
+                          Text(_historyMode ? 'Past Requests' : 'Pending Requests',
+                              style: AppTextStyles.title),
+                          Text(
+                              _historyMode
+                                  ? '${filteredCorrections.length} total'
+                                  : '${filteredCorrections.length} pending',
+                              style: AppTextStyles.caption),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.sm),
@@ -142,7 +211,9 @@ class _HrCorrectionScreenState extends State<HrCorrectionScreen> {
                                 const SizedBox(height: AppSpacing.sm),
                                 Text(
                                     corrections.isEmpty
-                                        ? 'No pending correction requests.'
+                                        ? (_historyMode
+                                            ? 'No past correction requests yet.'
+                                            : 'No pending correction requests.')
                                         : 'No matches for "$_searchQuery".',
                                     style: AppTextStyles.body
                                         .copyWith(color: AppColors.textSecondary)),
@@ -158,6 +229,9 @@ class _HrCorrectionScreenState extends State<HrCorrectionScreen> {
                           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
                           itemBuilder: (context, index) {
                             final correction = filteredCorrections[index];
+                            if (_historyMode) {
+                              return _HistoryCorrectionCard(correction: correction);
+                            }
                             final id = correction['id'] as String? ?? '';
                             return _PendingCorrectionCard(
                               correction: correction,
@@ -166,11 +240,149 @@ class _HrCorrectionScreenState extends State<HrCorrectionScreen> {
                             );
                           },
                         ),
+                      if (_historyMode && _historyPage < _historyTotalPages)
+                        Center(
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                            child: _loadingMore
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: AppColors.primary),
+                                  )
+                                : TextButton(
+                                    onPressed: _loadMoreHistory,
+                                    child: Text('Load More',
+                                        style: AppTextStyles.bodyMedium
+                                            .copyWith(color: AppColors.primary)),
+                                  ),
+                          ),
+                        ),
                       const SizedBox(height: AppSpacing.xxl),
                     ],
                   ),
                 ),
         ),
+      ),
+    );
+  }
+}
+
+class _ModeChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ModeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : AppColors.surface,
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+            width: selected ? 1.5 : 1,
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.full),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.caption.copyWith(
+            color: selected ? AppColors.primary : AppColors.textSecondary,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryCorrectionCard extends StatelessWidget {
+  final dynamic correction;
+
+  const _HistoryCorrectionCard({required this.correction});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = correction['employeeName'] as String? ?? 'Employee';
+    final date = correction['date'] as String? ?? '—';
+    final inTime = correction['requestedInTime'] as String?;
+    final outTime = correction['requestedOutTime'] as String?;
+    final reason = correction['reason'] as String? ?? '—';
+    final status = (correction['status'] as String? ?? '').toLowerCase();
+    final isApproved = status == 'approved';
+    final statusColor = isApproved ? AppColors.success : AppColors.error;
+    final statusBg =
+        isApproved ? const Color(0xFFDCFCE7) : const Color(0xFFFFE4E6);
+
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.primaryContainer,
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.primary),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: AppTextStyles.bodyMedium, overflow: TextOverflow.ellipsis),
+                    Text(
+                      [
+                        date,
+                        if (inTime != null) 'In → $inTime',
+                        if (outTime != null) 'Out → $outTime',
+                      ].join('   •   '),
+                      style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusBg,
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                ),
+                child: Text(
+                  isApproved ? 'Approved' : 'Rejected',
+                  style: AppTextStyles.caption
+                      .copyWith(color: statusColor, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            reason,
+            style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

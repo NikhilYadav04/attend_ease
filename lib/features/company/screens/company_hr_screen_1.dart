@@ -7,6 +7,7 @@ import 'package:attend_ease/features/company/services/company_service.dart';
 import 'package:attend_ease/features/correction/services/correction_service.dart';
 import 'package:attend_ease/features/leave/services/leave_service.dart';
 import 'package:attend_ease/features/auth/widgets/otp_auth_widgets.dart';
+import 'package:attend_ease/shared/utils/whatsapp_helper.dart';
 import 'package:attend_ease/shared/widgets/app_card.dart';
 import 'package:attend_ease/shared/widgets/skeleton_box.dart';
 import 'package:attend_ease/shared/widgets/app_text_field.dart';
@@ -26,7 +27,8 @@ class CompanyHrScreen1 extends StatefulWidget {
   State<CompanyHrScreen1> createState() => _CompanyHrScreen1State();
 }
 
-class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
+class _CompanyHrScreen1State extends State<CompanyHrScreen1>
+    with AutomaticKeepAliveClientMixin {
   final CompanyService _service = getIt<CompanyService>();
   final LeaveService _leaveService = LeaveService();
   final CorrectionService _correctionService = CorrectionService();
@@ -34,6 +36,9 @@ class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
   bool _loading = true;
   int _pendingLeaveCount = 0;
   int _pendingCorrectionCount = 0;
+
+  @override
+  bool get wantKeepAlive => true;
 
   final TextEditingController _callIDCtrl = TextEditingController();
   final TextEditingController _usernameCtrl = TextEditingController();
@@ -97,10 +102,12 @@ class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
   }
 
   Future<void> _getStaffReportList() async {
-    final res = await _service.getCountList();
+    final res = await _service.getCountList(page: 1);
     if (!mounted) return;
     if (res.success && res.data != null) {
-      context.read<CompanyProvider>().setStaffList(res.data!);
+      context
+          .read<CompanyProvider>()
+          .setStaffList(res.data!['items'] as List<dynamic>? ?? []);
     }
   }
 
@@ -127,6 +134,32 @@ class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
       p.resetCounts();
     } else {
       toastMessageError(context, 'Error!', res.message);
+    }
+  }
+
+  Future<void> _sendNotify(String employeeName,
+      {int? daysPresent, int? daysAbsent, double? percent}) async {
+    final res = await _service.sendNotify(employeeName);
+    if (!mounted) return;
+    if (!res.success || res.data == null || res.data!.isEmpty) {
+      toastMessageError(context, 'Error',
+          res.message.isNotEmpty ? res.message : 'No phone number on file for $employeeName.');
+      return;
+    }
+
+    final statsLine = (daysPresent != null && daysAbsent != null && percent != null)
+        ? '\n\nYour current attendance: $daysPresent present, $daysAbsent absent '
+            '(${percent.toStringAsFixed(0)}% this cycle).'
+        : '';
+    final message =
+        'Hi $employeeName, this is a reminder from HR to mark/regularize your attendance.'
+        '$statsLine';
+    final launched = await launchWhatsAppMessage(res.data!, message);
+    if (!mounted) return;
+    if (launched) {
+      toastMessageSuccess(context, 'Notified', '$employeeName has been notified.');
+    } else {
+      toastMessageError(context, 'Error', 'Could not open WhatsApp.');
     }
   }
 
@@ -206,6 +239,7 @@ class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_loading) {
       return const _HrDashboardSkeleton();
     }
@@ -402,11 +436,17 @@ class _CompanyHrScreen1State extends State<CompanyHrScreen1> {
                     final name = staff['employeeName'] ?? '';
                     final daysPresent =
                         (staff['daysPresent'] as num? ?? 0).toInt() % 30;
+                    final daysAbsent = (30 - daysPresent).clamp(0, 30);
                     final percent = (daysPresent / 30 * 100);
                     return _StaffRow(
                       name: name,
                       percent: percent,
-                      onNotify: () => _service.sendNotify(name),
+                      onNotify: () => _sendNotify(
+                        name,
+                        daysPresent: daysPresent,
+                        daysAbsent: daysAbsent,
+                        percent: percent,
+                      ),
                       onMeet: () => _showVideoDialog(name),
                     );
                   },

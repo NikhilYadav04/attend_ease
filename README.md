@@ -40,7 +40,7 @@
 
 ## 📖 Overview
 
-Attend Ease is a full-stack Flutter + Node.js application that streamlines workforce attendance. HR admins define a company geo-radius; employees can only clock in when physically inside it. Beyond the core punch-in/punch-out flow, HR gets tools to actually run a team day to day: multiple admins per company, a searchable leave/correction approval queue with live pending-count badges on the dashboard, a team leave calendar, a month/year-filterable attendance analytics dashboard, bulk CSV staff import, company holidays, per-employee leave quotas, configurable overtime detection, and a full audit trail of every approval and change. Leave requests, attendance corrections, daily attendance reports, and staff counts are all managed in-app, with PDF export for records and real-time video calls powered by Zego UIKit.
+Attend Ease is a full-stack Flutter + Node.js application that streamlines workforce attendance. HR admins define a company geo-radius; employees can only clock in when physically inside it. Beyond the core punch-in/punch-out flow, HR gets tools to actually run a team day to day: multiple admins per company, a searchable leave/correction approval queue with live pending-count badges and a paginated history view of past decisions, a team leave calendar, a month/year-filterable attendance analytics dashboard, bulk CSV staff import, company holidays, per-employee leave quotas, configurable overtime detection, and a full paginated audit trail of every approval and change. A one-tap WhatsApp reminder (with the employee's current attendance stats pre-filled) goes out to at-risk staff straight from the staff list or dashboard. Employees get a tap-to-explain attendance calendar (holiday name, leave, or punch time on any tinted day) and a self-service profile edit for their job title. Leave requests, attendance corrections, daily attendance reports, and staff counts are all managed in-app, with a branded PDF export for records and real-time video calls powered by Zego UIKit.
 
 The backend was migrated from MongoDB/Mongoose to a Postgres database (hosted on Supabase) via Prisma, with the API response shape kept byte-identical to the old Mongo version — the Flutter client required zero changes as a result.
 
@@ -113,6 +113,7 @@ server/
 | Charts | fl_chart 1 |
 | CSV import | csv 8 + file_picker 10 |
 | PDF export | pdf 3 + printing 5 |
+| Deep links | url_launcher 6 (WhatsApp `wa.me` alerts) |
 | OTP input | Pinput 5 |
 | Fonts | Google Fonts 6 |
 
@@ -223,10 +224,10 @@ All routes are prefixed with **`/api/v1`**. Protected routes require `Authorizat
 |---|---|---|---|
 | `POST` | `/company/add-company` | — | Register a new company (creates first admin) |
 | `GET` | `/company/get-report` | hrOnly | Full staff attendance + leave-balance report |
-| `POST` | `/company/store-history` | hrOnly | Save daily staff count snapshot |
+| `POST` | `/company/store-history` | hrOnly | Save daily staff count snapshot (captures current total employee headcount) |
 | `POST` | `/company/get-history` | hrOnly | Get staff count history for a date |
-| `GET` | `/company/history-list` | hrOnly | List all stored history dates |
-| `POST` | `/company/send-notifications` | hrOnly | Look up an employee's number for a notification |
+| `GET` | `/company/history-list` | hrOnly | Paginated (`?page=&limit=`) staff count submission history |
+| `POST` | `/company/send-notifications` | hrOnly | Look up an employee's phone number (client opens a WhatsApp `wa.me` deep link with it) |
 | `POST` | `/company/add-admin` | hrOnly | Add another company admin |
 | `GET` | `/company/admins` | hrOnly | List company admins |
 | `POST` | `/company/remove-admin` | hrOnly | Remove an admin (blocked if it's the last one) |
@@ -253,6 +254,8 @@ All routes are prefixed with **`/api/v1`**. Protected routes require `Authorizat
 | `GET` | `/employee/get-history` | employeeOnly | Get employee's own attendance report |
 | `POST` | `/employee/change-count` | employeeOnly | Update live in/out/total staff count |
 | `GET` | `/employee/get-count` | hrOnly | Fetch current live staff count |
+| `GET` | `/employee/my-profile` | employeeOnly | Get own profile (name, job title, ID, company) |
+| `POST` | `/employee/update-profile` | employeeOnly | Update own job title (name/phone stay HR-managed — used as JWT lookup keys) |
 
 ### Attendance
 
@@ -271,6 +274,7 @@ All routes are prefixed with **`/api/v1`**. Protected routes require `Authorizat
 | `GET` | `/leave/my-leaves` | employeeOnly | Employee's own leave history |
 | `GET` | `/leave/my-balance` | employeeOnly | Remaining leave days vs. quota |
 | `GET` | `/leave/pending-leaves` | hrOnly | HR fetches pending leave requests |
+| `GET` | `/leave/all-leaves` | hrOnly | Paginated (`?page=&limit=`) full leave history, any status |
 | `POST` | `/leave/action-leave` | hrOnly | HR approves or rejects a leave |
 
 ### Corrections
@@ -280,6 +284,7 @@ All routes are prefixed with **`/api/v1`**. Protected routes require `Authorizat
 | `POST` | `/correction/request-correction` | employeeOnly | Request a fix to a punch-in/out record |
 | `GET` | `/correction/my-corrections` | employeeOnly | Employee's own correction requests |
 | `GET` | `/correction/pending-corrections` | hrOnly | HR fetches pending correction requests |
+| `GET` | `/correction/all-corrections` | hrOnly | Paginated (`?page=&limit=`) full correction history, any status |
 | `POST` | `/correction/action-correction` | hrOnly | HR approves (patches the record) or rejects |
 
 ### Holidays
@@ -294,7 +299,7 @@ All routes are prefixed with **`/api/v1`**. Protected routes require `Authorizat
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `GET` | `/audit/log` | hrOnly | Chronological log of admin/employee/leave/correction/holiday/settings actions |
+| `GET` | `/audit/log` | hrOnly | Paginated (`?page=&limit=`) chronological log of admin/employee/leave/correction/holiday/settings actions |
 
 ---
 
@@ -323,7 +328,7 @@ Phone ──< Otp (active OTP per number)
 | `AttendanceRecord` | `employeeId`, `date`, `inTime`, `outTime`, `isPresent`, `isLate` |
 | `Location` | `companyId` (unique), `latitude`, `longitude`, `radius`, `workStartTime` |
 | `StaffCount` | `companyId` (unique), `inCount`, `outCount`, `total` |
-| `StaffReportEntry` | `companyId`, `isSubmit`, `totalCount`, `currentDate` |
+| `StaffReportEntry` | `companyId`, `isSubmit`, `totalCount`, `totalEmployees` (headcount at submission time, nullable for pre-existing rows), `currentDate`, `createdAt` |
 | `Leave` | `employeeId`, `companyId`, `leaveType`, `fromDate`, `toDate`, `reason`, `status` |
 | `AttendanceCorrection` | `employeeId`, `companyId`, `date`, `requestedInTime`, `requestedOutTime`, `reason`, `status` |
 | `Holiday` | `companyId`, `date`, `name` (unique per company+date) |
@@ -348,22 +353,22 @@ Phone ──< Otp (active OTP per number)
 | `AddStaffScreen` | HR | Add a single employee |
 | `BulkImportScreen` | HR | Import staff from a CSV, per-row results |
 | `EmployeeAttendanceScreen` | HR | One employee's attendance, leave balance, overtime |
-| `HrLeaveScreen` | HR | Search + approve/reject pending leave requests |
-| `HrCorrectionScreen` | HR | Search + approve/reject correction requests |
+| `HrLeaveScreen` | HR | Search + approve/reject pending leave requests, with a paginated History view of past decisions |
+| `HrCorrectionScreen` | HR | Search + approve/reject correction requests, with a paginated History view of past decisions |
 | `ManageAdminsScreen` | HR | Add/remove company admins |
 | `ManageHolidaysScreen` | HR | Add/remove company holidays |
 | `TeamLeaveCalendarScreen` | HR | Calendar of who's on leave + holidays |
 | `CompanyAnalyticsScreen` | HR | Month/year-filterable attendance trend chart (calendar picker + stepper), pending/late/hours stats |
-| `AuditLogScreen` | HR | Chronological log of HR actions |
+| `AuditLogScreen` | HR | Chronological, paginated ("Load More") log of HR actions |
 | `CompanySettingsScreen` | HR | Edit city + overtime threshold |
 | `AdminProfileScreen` | HR | HR profile + links to every screen above |
 | `EmployeeSetupScreen` | Employee | First-time setup (join company) |
-| `EmployeeMainScreen` | Employee | Tabbed shell: punch in/out, profile, calendar/log |
+| `EmployeeMainScreen` | Employee | Tabbed shell: punch in/out, profile, calendar/log (tap a tinted day for a holiday/leave/punch-time hint) |
 | `BiometricAuthScreen` | Employee | Fingerprint / face verification |
 | `LeaveRequestScreen` | Employee | Submit a leave request (shows remaining balance) |
 | `CorrectionRequestScreen` | Employee | Request a fix to a punch record |
 | `MyCorrectionsScreen` | Employee | View own correction request history |
-| `EmployeeProfileScreen` | Employee | Profile details |
+| `EmployeeProfileScreen` | Employee | Profile details; job title is self-editable |
 | `VideoCallScreen` | Both | Zego UIKit video call |
 
 ---
@@ -375,6 +380,7 @@ Phone ──< Otp (active OTP per number)
 - **Geo-radius enforcement** — the backend computes the distance between the device and the company's stored location; clock-in/out is rejected if outside the configured radius
 - **Biometric gate** — `local_auth` enforces fingerprint or face ID before attendance is marked
 - **Soft-delete offboarding** — removed employees are marked `deletedAt` rather than deleted, and `requireActiveEmployee` immediately revokes their session on the next request
+- **Full logout clearing** — logging out clears both JWT tokens from secure storage, every cached provider list, and the biometric-verified flag, so a second login on a shared device never inherits a previous session's data or auth state
 - **Input validation** — `requireFields` middleware rejects requests missing required body fields before they reach controllers
 - **Rate limiting & headers** — `express-rate-limit` on auth/company routes, `helmet` for standard security headers
 - **Audit trail** — every leave/correction approval, admin/employee add-or-remove, holiday change, and settings update is recorded via `logAction()`, viewable in the Audit Log screen
@@ -387,7 +393,7 @@ Phone ──< Otp (active OTP per number)
 - **Backend unit tests**: `cd server && npm test` (Node's built-in test runner — auth middleware, OTP token verification, role guards)
 - **Backend smoke tests**: ad-hoc Node scripts hitting the live API end-to-end (not checked into the repo; see `testing/` for the manual equivalent)
 - **Static analysis**: `flutter analyze` (Flutter/Dart) — should report no issues
-- **Manual test guides**: [`testing/TESTING_GUIDE.md`](testing/TESTING_GUIDE.md) (full walkthrough, one section per feature) and [`testing/TESTING_GUIDE_2.md`](testing/TESTING_GUIDE_2.md) (condensed checkbox version) cover every feature in the app end-to-end
+- **Manual test guides**: [`testing/TESTING_GUIDE.md`](testing/TESTING_GUIDE.md) (full walkthrough, one section per feature), [`testing/TESTING_GUIDE_2.md`](testing/TESTING_GUIDE_2.md) (condensed checkbox version), and [`testing/TESTING_GUIDE_3.md`](testing/TESTING_GUIDE_3.md) (latest round: calendar hints, HR history views, profile edit, logout, pagination, PDF export)
 
 ---
 

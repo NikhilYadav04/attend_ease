@@ -29,7 +29,11 @@ class EmployeeMainScreen2 extends StatefulWidget {
   State<EmployeeMainScreen2> createState() => _EmployeeMainScreen2State();
 }
 
-class _EmployeeMainScreen2State extends State<EmployeeMainScreen2> {
+class _EmployeeMainScreen2State extends State<EmployeeMainScreen2>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   bool _locationVerified = false;
   bool _verifyingLocation = true;
   bool _locationNotConfigured = false;
@@ -262,6 +266,7 @@ class _EmployeeMainScreen2State extends State<EmployeeMainScreen2> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final isAuthenticated = context.watch<AuthProvider>().isAuthenticated;
     final isPresent = context.watch<AttendanceProvider>().isPresent;
     final ap = context.watch<AttendanceProvider>();

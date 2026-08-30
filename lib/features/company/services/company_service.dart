@@ -110,22 +110,24 @@ class CompanyService extends ApiService {
   }
 
   // Get staff count history list — GET, company token
-  Future<ApiResponse<List<dynamic>>> getCountList() async {
+  Future<ApiResponse<Map<String, dynamic>>> getCountList(
+      {int page = 1, int limit = 20}) async {
     final token = await HelperFunctions.getCompanyToken();
-    return get<List<dynamic>>(
+    return get<Map<String, dynamic>>(
       ApiEndpoints.staffListHistory,
       token: token,
-      fromJson: (json) => json as List<dynamic>,
+      queryParameters: {'page': page, 'limit': limit},
+      fromJson: (json) => json as Map<String, dynamic>,
     );
   }
 
-  // Send WhatsApp notification — POST, company token
-  Future<ApiResponse<void>> sendNotify(String? employeeName) async {
+  Future<ApiResponse<String?>> sendNotify(String? employeeName) async {
     final token = await HelperFunctions.getCompanyToken();
-    return post<void>(
+    return post<String?>(
       ApiEndpoints.sendNotifications,
       token: token,
       data: {'employeeName': employeeName},
+      fromJson: (json) => json as String?,
     );
   }
 
@@ -229,12 +231,14 @@ class CompanyService extends ApiService {
   }
 
   // Get audit log — GET, company token
-  Future<ApiResponse<List<dynamic>>> getAuditLog() async {
+  Future<ApiResponse<Map<String, dynamic>>> getAuditLog(
+      {int page = 1, int limit = 20}) async {
     final token = await HelperFunctions.getCompanyToken();
-    return get<List<dynamic>>(
+    return get<Map<String, dynamic>>(
       ApiEndpoints.auditLog,
       token: token,
-      fromJson: (json) => json as List<dynamic>,
+      queryParameters: {'page': page, 'limit': limit},
+      fromJson: (json) => json as Map<String, dynamic>,
     );
   }
 }

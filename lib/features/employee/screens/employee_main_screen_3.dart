@@ -1,6 +1,7 @@
 import 'package:attend_ease/core/constants/app_colors.dart';
 import 'package:attend_ease/core/constants/app_spacing.dart';
 import 'package:attend_ease/core/constants/app_text_styles.dart';
+import 'package:attend_ease/features/auth/providers/auth_provider.dart';
 import 'package:attend_ease/features/correction/screens/my_corrections_screen.dart';
 import 'package:attend_ease/features/employee/providers/employee_provider.dart';
 import 'package:attend_ease/core/di/service_locator.dart';
@@ -23,7 +24,11 @@ class EmployeeMainScreen3 extends StatefulWidget {
   State<EmployeeMainScreen3> createState() => _EmployeeMainScreen3State();
 }
 
-class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
+class _EmployeeMainScreen3State extends State<EmployeeMainScreen3>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedDay = DateTime.now();
@@ -35,7 +40,7 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
   final _dateFmt = DateFormat('dd/MM/yy');
   List<DateTime> _presentDates = [];
   Set<DateTime> _onLeaveDates = {};
-  Set<DateTime> _holidayDates = {};
+  Map<DateTime, String> _holidayNames = {};
 
   @override
   void initState() {
@@ -50,12 +55,55 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
   Future<void> _fetchHolidayDates() async {
     final res = await _service.getHolidays();
     if (!mounted || !res.success || res.data == null) return;
-    final dates = <DateTime>{};
+    final names = <DateTime, String>{};
     for (final holiday in res.data!) {
       final dt = AttendanceTime.parseEntryDate(holiday['date'] as String? ?? '');
-      if (dt != null) dates.add(DateTime.utc(dt.year, dt.month, dt.day));
+      if (dt != null) {
+        names[DateTime.utc(dt.year, dt.month, dt.day)] =
+            holiday['name'] as String? ?? 'Holiday';
+      }
     }
-    setState(() => _holidayDates = dates);
+    setState(() => _holidayNames = names);
+  }
+
+  String? _holidayNameFor(DateTime day) {
+    for (final entry in _holidayNames.entries) {
+      if (isSameDay(entry.key, day)) return entry.value;
+    }
+    return null;
+  }
+
+  void _showDayHint(DateTime day, List<dynamic> report) {
+    final holidayName = _holidayNameFor(day);
+    final isOnLeave = _onLeaveDates.any((d) => isSameDay(d, day));
+    final entry = report.firstWhere(
+      (e) => isSameDay(
+          AttendanceTime.parseEntryDate(e['Date'] as String? ?? '') ??
+              DateTime(0),
+          day),
+      orElse: () => null,
+    );
+
+    String? hint;
+    if (holidayName != null) {
+      hint = '🎉 $holidayName · Holiday';
+    } else if (isOnLeave) {
+      hint = 'On Leave';
+    } else if (entry != null && entry['isPresent'] == true) {
+      final inT = entry['InTime'] as String?;
+      hint = (inT != null && inT != '00:00') ? 'Present · in $inT' : 'Present';
+    }
+
+    if (hint == null) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(hint),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.textPrimary,
+      ),
+    );
   }
 
   Future<void> _fetchDates() async {
@@ -155,36 +203,121 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
   }
 
   Future<void> _exportPdf(List<dynamic> report) async {
+    final brand = PdfColor.fromInt(AppColors.primary.toARGB32());
     final pdf = pw.Document();
     final now = DateTime.now();
+    final session = context.read<AuthProvider>();
+
+    final total = report.length;
+    final present = report.where((e) => e['isPresent'] == true).length;
+    final absent = total - present;
+    final rate = total > 0 ? (present / total * 100) : 0.0;
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        footer: (ctx) => pw.Container(
+          alignment: pw.Alignment.centerRight,
+          margin: const pw.EdgeInsets.only(top: 8),
+          child: pw.Text(
+            'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+          ),
+        ),
         build: (ctx) => [
-          pw.Text('Attendance Report',
-              style: pw.TextStyle(
-                  fontSize: 22, fontWeight: pw.FontWeight.bold)),
+          // ── Header ────────────────────────────────────────────
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('Attendance Report',
+                      style: pw.TextStyle(
+                          fontSize: 22,
+                          fontWeight: pw.FontWeight.bold,
+                          color: brand)),
+                  pw.SizedBox(height: 4),
+                  pw.Text(session.eName ?? 'Employee',
+                      style: pw.TextStyle(
+                          fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                  pw.Text(
+                      '${session.eCName ?? '—'}'
+                      '${(session.eID ?? '').isNotEmpty ? '   ·   ID: ${session.eID}' : ''}',
+                      style:
+                          const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                ],
+              ),
+              pw.Text('Generated ${DateFormat('dd MMM yyyy').format(now)}',
+                  style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+            ],
+          ),
           pw.SizedBox(height: 4),
-          pw.Text(
-              'Generated: ${DateFormat('dd MMM yyyy').format(now)}',
-              style: const pw.TextStyle(fontSize: 10)),
+          pw.Divider(color: brand, thickness: 1.2),
+          pw.SizedBox(height: 14),
+
+          // ── Summary strip ───────────────────────────────────────
+          pw.Row(
+            children: [
+              _pdfStat('Total', '$total', brand),
+              pw.SizedBox(width: 8),
+              _pdfStat('Present', '$present', PdfColors.green700),
+              pw.SizedBox(width: 8),
+              _pdfStat('Absent', '$absent', PdfColors.red700),
+              pw.SizedBox(width: 8),
+              _pdfStat('Rate', '${rate.toStringAsFixed(0)}%', brand),
+            ],
+          ),
           pw.SizedBox(height: 16),
-          pw.TableHelper.fromTextArray(
-            headers: ['Date', 'Status', 'Punch In', 'Punch Out', 'Hours'],
-            headerStyle:
-                pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
-            headerDecoration:
-                const pw.BoxDecoration(color: PdfColors.blueGrey100),
-            data: report
-                .map((e) => [
-                      e['Date'] ?? '—',
-                      e['isPresent'] == true ? 'Present' : 'Absent',
-                      e['InTime'] ?? '—',
-                      e['OutTime'] ?? '—',
-                      AttendanceTime.calcHoursWorked(e['InTime'], e['OutTime']) ?? '—',
-                    ])
-                .toList(),
-            cellStyle: const pw.TextStyle(fontSize: 10),
+
+          // ── Table ────────────────────────────────────────────
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(2.2),
+              1: pw.FlexColumnWidth(1.6),
+              2: pw.FlexColumnWidth(1.6),
+              3: pw.FlexColumnWidth(1.6),
+              4: pw.FlexColumnWidth(1.4),
+            },
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(color: brand),
+                children: ['Date', 'Status', 'Punch In', 'Punch Out', 'Hours']
+                    .map((h) => pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 6),
+                          child: pw.Text(h,
+                              style: pw.TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.white)),
+                        ))
+                    .toList(),
+              ),
+              for (var i = 0; i < report.length; i++)
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(
+                      color: i.isEven ? PdfColors.grey100 : PdfColors.white),
+                  children: [
+                    _pdfCell(report[i]['Date'] ?? '—'),
+                    _pdfCell(
+                      report[i]['isPresent'] == true ? 'Present' : 'Absent',
+                      color: report[i]['isPresent'] == true
+                          ? PdfColors.green700
+                          : PdfColors.red700,
+                      bold: true,
+                    ),
+                    _pdfCell(report[i]['InTime'] ?? '—'),
+                    _pdfCell(report[i]['OutTime'] ?? '—'),
+                    _pdfCell(AttendanceTime.calcHoursWorked(
+                            report[i]['InTime'], report[i]['OutTime']) ??
+                        '—'),
+                  ],
+                ),
+            ],
           ),
         ],
       ),
@@ -195,8 +328,43 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
     );
   }
 
+  pw.Widget _pdfStat(String label, String value, PdfColor color) {
+    return pw.Expanded(
+      child: pw.Container(
+        padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: pw.BoxDecoration(
+          color: PdfColors.grey50,
+          border: pw.Border.all(color: color, width: 0.6),
+          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(value,
+                style: pw.TextStyle(
+                    fontSize: 14, fontWeight: pw.FontWeight.bold, color: color)),
+            pw.Text(label,
+                style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _pdfCell(String text, {PdfColor? color, bool bold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+      child: pw.Text(text,
+          style: pw.TextStyle(
+              fontSize: 9.5,
+              color: color ?? PdfColors.black,
+              fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final report = context.watch<EmployeeProvider>().report;
     final stats = _monthStats(report, _displayMonth);
     final log = _monthLog(report);
@@ -263,12 +431,15 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
                   focusedDay: _focusedDay,
                   calendarFormat: _calendarFormat,
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                  onDaySelected: (selected, focused) => setState(() {
-                    _selectedDay = selected;
-                    _focusedDay = focused;
-                    _displayMonth =
-                        DateTime(focused.year, focused.month);
-                  }),
+                  onDaySelected: (selected, focused) {
+                    setState(() {
+                      _selectedDay = selected;
+                      _focusedDay = focused;
+                      _displayMonth =
+                          DateTime(focused.year, focused.month);
+                    });
+                    _showDayHint(selected, report);
+                  },
                   onFormatChanged: (format) =>
                       setState(() => _calendarFormat = format),
                   onPageChanged: (focused) => setState(() {
@@ -308,7 +479,7 @@ class _EmployeeMainScreen3State extends State<EmployeeMainScreen3> {
                       final isOnLeave = !isPresent &&
                           _onLeaveDates.any((d) => isSameDay(d, day));
                       final isHoliday = !isPresent && !isOnLeave &&
-                          _holidayDates.any((d) => isSameDay(d, day));
+                          _holidayNames.keys.any((d) => isSameDay(d, day));
                       final markColor = isPresent
                           ? AppColors.success
                           : isOnLeave

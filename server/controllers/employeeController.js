@@ -211,6 +211,67 @@ const getCount = async (req, res) => {
   }
 };
 
+const getProfile = async (req, res) => {
+  try {
+    const { employeeName, employeeCompany } = req.user;
+    const company = await prisma.company.findUnique({ where: { companyName: employeeCompany } });
+    const employee = company
+      ? await prisma.employee.findUnique({
+          where: { employeeName_companyId: { employeeName, companyId: company.id } },
+        })
+      : null;
+
+    if (!employee) {
+      return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "OK",
+      data: {
+        employeeName: employee.employeeName,
+        employeePosition: employee.employeePosition,
+        employeeNumber: employee.employeeNumber,
+        employeeID: employee.employeeCode,
+        employeeCompany: company.companyName,
+      },
+    });
+  } catch (e) {
+    console.error("[getProfile]", e);
+    return res.status(500).json({ success: false, message: "Request failed" });
+  }
+};
+
+const updateProfile = async (req, res) => {
+  try {
+    const { employeePosition } = req.body;
+    const { employeeName, employeeCompany } = req.user;
+
+    if (!employeePosition || !employeePosition.trim()) {
+      return res.status(400).json({ success: false, message: "Job title cannot be empty" });
+    }
+
+    const company = await prisma.company.findUnique({ where: { companyName: employeeCompany } });
+    if (!company) {
+      return res.status(404).json({ success: false, message: "Company not found" });
+    }
+
+    const employee = await prisma.employee.update({
+      where: { employeeName_companyId: { employeeName, companyId: company.id } },
+      data: { employeePosition: employeePosition.trim() },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated",
+      data: { employeePosition: employee.employeePosition },
+    });
+  } catch (e) {
+    console.error("[updateProfile]", e);
+    return res.status(500).json({ success: false, message: "Failed to update profile" });
+  }
+};
+
 const removeEmployee = async (req, res) => {
   try {
     const { employeeName } = req.body;
@@ -252,4 +313,6 @@ module.exports = {
   changeCount,
   getCount,
   removeEmployee,
+  getProfile,
+  updateProfile,
 };
