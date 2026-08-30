@@ -8,8 +8,6 @@
 
 ## 📸 App Screenshots
 
-<div align="center">
-
 <table>
   <tr>
     <td><img src="https://github.com/user-attachments/assets/e864dce2-8bf9-4b40-9a42-a3878f63afce" width="160"/></td>
@@ -33,8 +31,6 @@
 </table>
 
 </div>
-
-
 
 ---
 
